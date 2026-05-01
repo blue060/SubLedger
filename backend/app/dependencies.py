@@ -34,4 +34,4 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> dict:
         elif csrf_header and csrf_header != payload.get("csrf", ""):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF 验证失败")
 
-    return {"user_id": payload["sub"], "csrf": payload.get("csrf", "")}
+    return {"user_id": int(payload["sub"]), "csrf": payload.get("csrf", "")}

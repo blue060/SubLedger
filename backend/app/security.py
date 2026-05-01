@@ -22,7 +22,7 @@ def generate_csrf_token() -> str:
 def create_access_token(user_id: int, csrf_token: str) -> str:
     settings = get_settings()
     expire = datetime.now(timezone.utc) + timedelta(days=settings.JWT_EXPIRE_DAYS)
-    payload = {"sub": user_id, "csrf": csrf_token, "exp": expire}
+    payload = {"sub": str(user_id), "csrf": csrf_token, "exp": expire}
     return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
 
 
