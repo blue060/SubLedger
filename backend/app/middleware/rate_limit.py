@@ -31,7 +31,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             del self._requests[ip]
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        if request.url.path.startswith("/api/health"):
+        if request.url.path.startswith("/api/health") or request.url.path == "/api/auth/login":
             return await call_next(request)
 
         ip = request.client.host if request.client else "unknown"

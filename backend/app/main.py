@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
 
 from app.config import get_settings
 from app.database import Base, engine, SessionLocal
@@ -95,7 +96,17 @@ app.include_router(notifications.router)
 app.include_router(settings_router.router)
 app.include_router(data.router)
 
-# Static files (Vue build output)
+# Static files & SPA fallback
 static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static")
+
+
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str):
+    file_path = os.path.join(static_dir, full_path)
+    if full_path and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return FileResponse(os.path.join(static_dir, "index.html"))
+
+
 if os.path.isdir(static_dir):
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+    app.mount("/", StaticFiles(directory=static_dir), name="static")
