@@ -24,25 +24,23 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import api from '../composables/useApi'
 import { zhCN } from '../locales/zh-CN'
 
 const password = ref('')
 const loading = ref(false)
-const router = useRouter()
-const authStore = useAuthStore()
 
 async function handleLogin() {
   if (!password.value) return
   loading.value = true
   try {
-    await authStore.login(password.value)
+    await api.post('/auth/login', { password: password.value })
     ElMessage.success(zhCN.auth.loginSuccess)
-    router.push('/dashboard')
-  } catch {
-    ElMessage.error(zhCN.auth.loginFailed)
+    // Use direct window.location to ensure full page reload with cookies
+    window.location.href = '/dashboard'
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || zhCN.auth.loginFailed)
   } finally {
     loading.value = false
   }

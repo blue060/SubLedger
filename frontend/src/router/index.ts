@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import api from '../composables/useApi'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -21,16 +20,6 @@ const router = createRouter({
       ],
     },
   ],
-})
-
-router.beforeEach(async (to) => {
-  if (to.path === '/login') return true
-  try {
-    await api.get('/auth/me')
-    return true
-  } catch {
-    return { path: '/login' }
-  }
 })
 
 export default router
