@@ -7,6 +7,10 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('subledger_token')
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`
+  }
   const csrf = document.cookie
     .split('; ')
     .find((row) => row.startsWith('subledger_csrf='))

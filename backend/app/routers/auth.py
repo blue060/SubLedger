@@ -34,7 +34,7 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
         max_age=7 * 24 * 3600,
     )
 
-    return LoginResponse(username=user.username)
+    return LoginResponse(username=user.username, token=jwt_token)
 
 
 @router.post("/logout")

@@ -35,7 +35,9 @@ async function handleLogin() {
   if (!password.value) return
   loading.value = true
   try {
-    await api.post('/auth/login', { password: password.value })
+    await api.post('/auth/login', { password: password.value }).then((res) => {
+      localStorage.setItem('subledger_token', res.data.token)
+    })
     ElMessage.success(zhCN.auth.loginSuccess)
     // Use direct window.location to ensure full page reload with cookies
     window.location.href = '/dashboard'
