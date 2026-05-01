@@ -2,11 +2,12 @@ version: "3.8"
 
 services:
   subledger:
+    image: blue060/subledger:latest
     build: .
     container_name: subledger
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8090:8080"
     volumes:
       - subledger_data:/data
     environment:

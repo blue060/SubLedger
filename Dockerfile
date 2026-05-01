@@ -20,8 +20,13 @@ COPY backend/ /app/backend/
 # Copy built frontend
 COPY --from=frontend-builder /app/frontend/dist /app/static
 
-# Create data directory
-RUN mkdir -p /data
+# Create non-root user and data directory
+RUN groupadd -g 1000 subledger && \
+    useradd -u 1000 -g subledger -m subledger && \
+    mkdir -p /data && \
+    chown -R subledger:subledger /data /app
+
+USER subledger
 
 ENV PYTHONPATH=/app/backend
 ENV DATABASE_URL=sqlite:///data/subledger.db
