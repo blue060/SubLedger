@@ -9,7 +9,6 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.database import Base, engine, SessionLocal
 from app.models import User, Category, Notification, Subscription, AppSettings
-from app.middleware.csrf import CSRFMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data
 from app.services.scheduler import start_scheduler, stop_scheduler
@@ -77,7 +76,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SubLedger", lifespan=lifespan, docs_url=None, redoc_url=None)
 
 # Middleware (order: last added = first executed)
-app.add_middleware(CSRFMiddleware)
 app.add_middleware(RateLimitMiddleware, max_requests=60, window_seconds=60)
 app.add_middleware(
     CORSMiddleware,
