@@ -23,14 +23,16 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
         key="subledger_token",
         value=jwt_token,
         httponly=True,
-        samesite="lax",
+        samesite="none",
+        secure=True,
         max_age=7 * 24 * 3600,
     )
     response.set_cookie(
         key="subledger_csrf",
         value=csrf_token,
         httponly=False,
-        samesite="strict",
+        samesite="none",
+        secure=True,
         max_age=7 * 24 * 3600,
     )
 
