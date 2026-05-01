@@ -29,7 +29,7 @@ RUN groupadd -g 1000 subledger && \
 USER subledger
 
 ENV PYTHONPATH=/app/backend
-ENV DATABASE_URL=sqlite:///data/subledger.db
+ENV DATABASE_URL=sqlite:////data/subledger.db
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8080

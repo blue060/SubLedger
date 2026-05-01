@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = ""
     SECRET_KEY: str = "change-me-in-production"
     ENV: str = "production"
-    DATABASE_URL: str = "sqlite:///./data/subledger.db"
+    DATABASE_URL: str = "sqlite:////data/subledger.db"
     JWT_EXPIRE_DAYS: int = 7
     EXCHANGE_RATE_API_KEY: str = ""
     EXCHANGE_RATE_CACHE_HOURS: int = 24
