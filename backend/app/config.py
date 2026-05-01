@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     ADMIN_PASSWORD: str = ""
-    SECRET_KEY: str = "change-me-in-production"
+    SECRET_KEY: str = "subledger-default-secret-key-change-in-production-please"
     ENV: str = "production"
     DATABASE_URL: str = "sqlite:////data/subledger.db"
     JWT_EXPIRE_DAYS: int = 7

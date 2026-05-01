@@ -12,7 +12,7 @@ services:
       - subledger_data:/data
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?请设置ADMIN_PASSWORD环境变量}
-      - SECRET_KEY=${SECRET_KEY:-subledger-secret-key-change-me}
+      - SECRET_KEY=${SECRET_KEY:-subledger-default-secret-key-change-in-production-please}
       - ENV=production
       # Optional: SMTP
       - SMTP_HOST=${SMTP_HOST:-}

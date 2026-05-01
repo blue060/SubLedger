@@ -20,7 +20,8 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录")
     try:
         payload = decode_access_token(token)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"JWT decode failed: {type(e).__name__}: {e}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已过期，请重新登录")
 
     # CSRF check for mutating requests
