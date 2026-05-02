@@ -35,7 +35,7 @@ import { ElMessage } from 'element-plus'
 import api from '../composables/useApi'
 import { zhCN } from '../locales/zh-CN'
 
-const username = ref('admin')
+const username = ref('')
 const password = ref('')
 const loading = ref(false)
 

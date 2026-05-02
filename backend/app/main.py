@@ -4,7 +4,6 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 
 from app.config import get_settings
@@ -32,13 +31,7 @@ DEFAULT_CATEGORIES = [
 def seed_database():
     db = SessionLocal()
     try:
-        # Seed admin user from ADMIN_PASSWORD env var (backward compat)
         settings = get_settings()
-        if settings.ADMIN_PASSWORD and db.query(User).count() == 0:
-            from app.security import hash_password
-            db.add(User(username="admin", password_hash=hash_password(settings.ADMIN_PASSWORD)))
-            db.commit()
-            logger.info("已通过 ADMIN_PASSWORD 创建管理员账户")
 
         # Seed default categories
         if db.query(Category).count() == 0:
@@ -102,7 +95,3 @@ async def serve_spa(full_path: str):
     if full_path and os.path.isfile(file_path):
         return FileResponse(file_path)
     return FileResponse(os.path.join(static_dir, "index.html"))
-
-
-if os.path.isdir(static_dir):
-    app.mount("/", StaticFiles(directory=static_dir), name="static")

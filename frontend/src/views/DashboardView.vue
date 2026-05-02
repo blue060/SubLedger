@@ -2,21 +2,29 @@
   <div>
     <h2>{{ zhCN.dashboard.title }}</h2>
 
+    <!-- Summary cards -->
     <el-row :gutter="16" class="summary-row">
-      <el-col :span="12" :xs="24">
+      <el-col :span="8" :xs="12">
         <el-card shadow="hover">
           <template #header>{{ zhCN.dashboard.monthlySpend }}</template>
           <div class="amount">{{ summary.monthly_total_currency }} {{ (summary.monthly_total ?? 0).toFixed(2) }}</div>
         </el-card>
       </el-col>
-      <el-col :span="12" :xs="24">
+      <el-col :span="8" :xs="12">
         <el-card shadow="hover">
           <template #header>{{ zhCN.dashboard.nextMonthProjected }}</template>
           <div class="amount">{{ summary.next_month_projected_currency }} {{ (summary.next_month_projected ?? 0).toFixed(2) }}</div>
         </el-card>
       </el-col>
+      <el-col :span="8" :xs="24">
+        <el-card shadow="hover">
+          <template #header>{{ zhCN.dashboard.allSubscriptions }}</template>
+          <div class="amount">{{ activeCount }}</div>
+        </el-card>
+      </el-col>
     </el-row>
 
+    <!-- Expiring soon alert -->
     <el-row v-if="expiring.length" :gutter="16" style="margin-top: 16px">
       <el-col :span="24">
         <el-card shadow="hover" class="expiring-card">
@@ -36,6 +44,7 @@
       </el-col>
     </el-row>
 
+    <!-- Charts row -->
     <el-row :gutter="16" style="margin-top: 16px">
       <el-col :span="12" :xs="24">
         <el-card shadow="hover">
@@ -53,7 +62,7 @@
               :timestamp="entry.date"
             >
               {{ entry.subscription_name }} - {{ entry.currency }} {{ Number(entry.amount).toFixed(2) }}
-              <span v-if="entry.converted_amount !== entry.amount">
+              <span v-if="Math.abs(entry.converted_amount - entry.amount) > 0.005">
                 (≈ {{ Number(entry.converted_amount).toFixed(2) }})
               </span>
             </el-timeline-item>
@@ -62,35 +71,70 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- Subscription cards overview -->
+    <h3 style="margin-top: 24px">{{ zhCN.dashboard.allSubscriptions }}</h3>
+    <el-empty v-if="!subscriptions.length" :description="zhCN.dashboard.noSubscriptions" />
+    <el-row v-else :gutter="16" class="sub-cards">
+      <el-col v-for="sub in subscriptions" :key="sub.id" :xs="24" :sm="12" :md="8" :lg="6">
+        <el-card shadow="hover" class="sub-card" :class="{ 'sub-expiring': sub.remaining_days !== null && sub.remaining_days !== undefined && sub.remaining_days <= 30 }">
+          <div class="sub-card-header">
+            <span class="sub-card-name">{{ sub.name }}</span>
+            <el-tag v-if="sub.category_name" :color="sub.category_color" size="small" style="color: #fff; border: none">
+              {{ sub.category_name }}
+            </el-tag>
+          </div>
+          <div class="sub-card-amount">{{ formatCurrency(sub.amount, sub.currency) }}<span class="sub-card-cycle"> /{{ cycleLabel(sub.billing_cycle) }}</span></div>
+          <div class="sub-card-info">
+            <span>{{ zhCN.dashboard.nextBill }}: {{ sub.next_payment_date }}</span>
+          </div>
+          <div v-if="sub.remaining_days !== null && sub.remaining_days !== undefined" class="sub-card-expiry">
+            <el-tag :type="sub.remaining_days <= 0 ? 'danger' : sub.remaining_days <= 7 ? 'danger' : sub.remaining_days <= 30 ? 'warning' : 'info'" size="small">
+              {{ sub.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(sub.remaining_days)) }}
+            </el-tag>
+            <span class="sub-card-expiry-date">{{ zhCN.dashboard.expires }}: {{ sub.expiry_date }}</span>
+          </div>
+          <div v-if="sub.url" class="sub-card-url">
+            <a :href="sub.url" target="_blank" rel="noopener">{{ sub.url }}</a>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import * as echarts from 'echarts'
 import { getDashboardSummary, getDashboardStats, getDashboardCalendar, getDashboardExpiring } from '../api/dashboard'
+import { listSubscriptions } from '../api/subscriptions'
 import { zhCN } from '../locales/zh-CN'
 
 const summary = ref<Record<string, any>>({})
 const stats = ref<any[]>([])
 const calendar = ref<any[]>([])
 const expiring = ref<any[]>([])
+const subscriptions = ref<any[]>([])
 const chartRef = ref<HTMLElement>()
 let chartInstance: echarts.ECharts | null = null
+
+const activeCount = computed(() => zhCN.dashboard.activeCount.replace('{count}', String(subscriptions.value.length)))
 
 const resizeHandler = () => chartInstance?.resize()
 
 onMounted(async () => {
-  const [summaryRes, statsRes, calendarRes, expiringRes] = await Promise.all([
+  const [summaryRes, statsRes, calendarRes, expiringRes, subsRes] = await Promise.all([
     getDashboardSummary().catch(() => ({ data: {} })),
     getDashboardStats().catch(() => ({ data: [] })),
     getDashboardCalendar().catch(() => ({ data: [] })),
     getDashboardExpiring().catch(() => ({ data: [] })),
+    listSubscriptions(true).catch(() => ({ data: [] })),
   ])
   summary.value = summaryRes.data
   stats.value = statsRes.data
   calendar.value = calendarRes.data
   expiring.value = expiringRes.data
+  subscriptions.value = subsRes.data
 
   await nextTick()
   renderChart()
@@ -117,6 +161,20 @@ function renderChart() {
     }],
   })
   window.addEventListener('resize', resizeHandler)
+}
+
+function formatCurrency(amount: number, currency: string) {
+  const symbols: Record<string, string> = { CNY: '¥', USD: '$', EUR: '€', GBP: '£', JPY: '¥', HKD: '$' }
+  return `${symbols[currency] || ''}${amount.toFixed(2)}`
+}
+
+function cycleLabel(cycle: string) {
+  const labels: Record<string, string> = {
+    monthly: zhCN.subscription.monthly,
+    quarterly: zhCN.subscription.quarterly,
+    yearly: zhCN.subscription.yearly,
+  }
+  return labels[cycle] || cycle
 }
 </script>
 
@@ -151,5 +209,62 @@ function renderChart() {
 .expiring-date {
   color: #909399;
   font-size: 12px;
+}
+.sub-cards .el-col {
+  margin-bottom: 16px;
+}
+.sub-card {
+  height: 100%;
+}
+.sub-card.sub-expiring {
+  border: 1px solid #fde2e2;
+}
+.sub-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.sub-card-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+.sub-card-amount {
+  font-size: 20px;
+  font-weight: 600;
+  color: #409eff;
+  margin-bottom: 8px;
+}
+.sub-card-cycle {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 400;
+}
+.sub-card-info {
+  color: #606266;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.sub-card-expiry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.sub-card-expiry-date {
+  color: #909399;
+  font-size: 12px;
+}
+.sub-card-url {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.sub-card-url a {
+  color: #409eff;
+  text-decoration: none;
+  word-break: break-all;
+}
+.sub-card-url a:hover {
+  text-decoration: underline;
 }
 </style>

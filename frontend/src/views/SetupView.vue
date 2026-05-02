@@ -51,7 +51,7 @@ const loading = ref(false)
 async function handleSetup() {
   if (!username.value || !password.value) return
   if (password.value !== confirmPassword.value) {
-    ElMessage.error('两次密码输入不一致')
+    ElMessage.error(zhCN.auth.passwordMismatch)
     return
   }
   loading.value = true
@@ -60,7 +60,7 @@ async function handleSetup() {
     ElMessage.success(zhCN.auth.setupSuccess)
     setTimeout(() => { window.location.href = '/login' }, 500)
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || '设置失败')
+    ElMessage.error(e.response?.data?.detail || zhCN.auth.setupFailed)
   } finally {
     loading.value = false
   }

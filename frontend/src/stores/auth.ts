@@ -6,8 +6,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false)
   const username = ref('')
 
-  async function login(password: string) {
-    const res = await apiLogin(password)
+  async function login(uname: string, pwd: string) {
+    const res = await apiLogin(uname, pwd)
     isLoggedIn.value = true
     username.value = res.data.username
   }

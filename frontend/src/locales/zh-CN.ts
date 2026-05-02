@@ -26,6 +26,8 @@ export const zhCN = {
     setupTitle: '初始化设置',
     setupDesc: '首次使用，请设置管理员账号',
     setupSuccess: '设置成功，请登录',
+    passwordMismatch: '两次密码输入不一致',
+    setupFailed: '设置失败',
   },
   nav: {
     dashboard: '仪表盘',
@@ -64,6 +66,11 @@ export const zhCN = {
     upcomingPayments: '近期扣款',
     expiringSoon: '即将到期',
     noExpiring: '暂无即将到期的订阅',
+    allSubscriptions: '订阅总览',
+    activeCount: '{count} 个活跃订阅',
+    nextBill: '下次扣款',
+    expires: '到期',
+    noSubscriptions: '暂无订阅',
   },
   settings: {
     title: '系统设置',

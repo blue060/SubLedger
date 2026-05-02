@@ -38,6 +38,8 @@ export interface SubscriptionUpdate {
   first_payment_date?: string
   category_id?: number | null
   notes?: string | null
+  url?: string | null
+  expiry_date?: string | null
   notify?: boolean
   is_active?: boolean
 }

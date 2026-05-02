@@ -25,7 +25,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      if (window.location.pathname !== '/login') {
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/setup') {
         window.location.href = '/login'
       }
     } else if (error.response?.status === 429) {
