@@ -12,6 +12,7 @@ export interface Subscription {
   notes: string | null
   url: string | null
   expiry_date: string | null
+  payment_method: string | null
   remaining_days: number | null
   notify: boolean
   is_active: boolean
@@ -27,6 +28,7 @@ export interface SubscriptionCreate {
   notes: string | null
   url: string | null
   expiry_date: string | null
+  payment_method: string | null
   notify: boolean
 }
 
@@ -40,6 +42,7 @@ export interface SubscriptionUpdate {
   notes?: string | null
   url?: string | null
   expiry_date?: string | null
+  payment_method?: string | null
   notify?: boolean
   is_active?: boolean
 }

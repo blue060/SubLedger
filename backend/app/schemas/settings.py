@@ -5,6 +5,8 @@ from typing import Optional
 class SettingsOut(BaseModel):
     preferred_currency: str
     reminder_days: int
+    monthly_budget: Optional[float] = None
+    theme: str = "light"
     smtp_host: Optional[str] = None
     smtp_port: Optional[int] = None
     smtp_user: Optional[str] = None
@@ -17,6 +19,8 @@ class SettingsOut(BaseModel):
 class SettingsUpdate(BaseModel):
     preferred_currency: Optional[str] = None
     reminder_days: Optional[int] = None
+    monthly_budget: Optional[float] = None
+    theme: Optional[str] = None
     smtp_host: Optional[str] = None
     smtp_port: Optional[int] = None
     smtp_user: Optional[str] = None

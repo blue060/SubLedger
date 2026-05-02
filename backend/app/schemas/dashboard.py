@@ -29,3 +29,15 @@ class ExpiringSubscription(BaseModel):
     name: str
     expiry_date: date
     remaining_days: int
+
+
+class MonthlyTrend(BaseModel):
+    month: str
+    total: float
+
+
+class BudgetStatus(BaseModel):
+    budget: Optional[float] = None
+    spent: float
+    remaining: Optional[float] = None
+    exceeded: bool = False

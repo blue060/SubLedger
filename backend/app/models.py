@@ -44,6 +44,7 @@ class Subscription(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     expiry_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    payment_method: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     notify: Mapped[bool] = mapped_column(Boolean, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
@@ -84,5 +85,19 @@ class AppSettings(Base):
     serverchan_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     exchange_rate_cache: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     exchange_rate_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    monthly_budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    theme: Mapped[str] = mapped_column(String(10), default="light")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class PriceHistory(Base):
+    __tablename__ = "price_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id"), nullable=False)
+    old_amount: Mapped[float] = mapped_column(Float, nullable=False)
+    new_amount: Mapped[float] = mapped_column(Float, nullable=False)
+    old_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    new_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())

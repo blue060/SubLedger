@@ -1,11 +1,12 @@
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import Subscription, Category
+from app.models import Subscription, Category, PriceHistory
 from app.schemas.subscription import SubscriptionCreate, SubscriptionUpdate, SubscriptionOut
+from app.schemas.price_history import PriceHistoryOut
 from app.services.billing import calculate_next_payment_date
 
 router = APIRouter(prefix="/api/subscriptions", tags=["订阅"], dependencies=[Depends(get_current_user)])
@@ -24,11 +25,20 @@ def _sub_to_out(sub: Subscription) -> SubscriptionOut:
 @router.get("", response_model=list[SubscriptionOut])
 def list_subscriptions(
     is_active: bool | None = None,
+    search: str | None = None,
+    category_id: int | None = None,
+    currency: str | None = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(Subscription)
     if is_active is not None:
         q = q.filter(Subscription.is_active == is_active)
+    if search:
+        q = q.filter(Subscription.name.ilike(f"%{search}%"))
+    if category_id is not None:
+        q = q.filter(Subscription.category_id == category_id)
+    if currency:
+        q = q.filter(Subscription.currency == currency)
     subs = q.order_by(Subscription.next_payment_date).all()
     return [_sub_to_out(s) for s in subs]
 
@@ -60,6 +70,16 @@ def get_subscription(sub_id: int, db: Session = Depends(get_db)):
     return _sub_to_out(sub)
 
 
+@router.get("/{sub_id}/price-history", response_model=list[PriceHistoryOut])
+def get_price_history(sub_id: int, db: Session = Depends(get_db)):
+    sub = db.query(Subscription).filter(Subscription.id == sub_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="订阅不存在")
+    return db.query(PriceHistory).filter(
+        PriceHistory.subscription_id == sub_id
+    ).order_by(PriceHistory.created_at.desc()).all()
+
+
 @router.put("/{sub_id}", response_model=SubscriptionOut)
 def update_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Depends(get_db)):
     sub = db.query(Subscription).filter(Subscription.id == sub_id).first()
@@ -67,10 +87,25 @@ def update_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Dep
         raise HTTPException(status_code=404, detail="订阅不存在")
 
     update_data = body.model_dump(exclude_unset=True)
+
+    # Track price changes
+    if "amount" in update_data or "currency" in update_data:
+        old_amount = sub.amount
+        old_currency = sub.currency
+        new_amount = update_data.get("amount", old_amount)
+        new_currency = update_data.get("currency", old_currency)
+        if old_amount != new_amount or old_currency != new_currency:
+            db.add(PriceHistory(
+                subscription_id=sub.id,
+                old_amount=old_amount,
+                new_amount=new_amount,
+                old_currency=old_currency,
+                new_currency=new_currency,
+            ))
+
     for key, value in update_data.items():
         setattr(sub, key, value)
 
-    # Recalculate next_payment_date if relevant fields changed
     if any(k in update_data for k in ("first_payment_date", "billing_cycle")):
         sub.next_payment_date = calculate_next_payment_date(
             sub.first_payment_date, sub.billing_cycle
@@ -89,3 +124,19 @@ def delete_subscription(sub_id: int, db: Session = Depends(get_db)):
     db.delete(sub)
     db.commit()
     return {"detail": "订阅已删除"}
+
+
+@router.post("/batch-delete")
+def batch_delete(ids: list[int] = Body(..., embed=True), db: Session = Depends(get_db)):
+    db.query(Subscription).filter(Subscription.id.in_(ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"detail": f"已删除 {len(ids)} 个订阅"}
+
+
+@router.post("/batch-toggle")
+def batch_toggle(ids: list[int] = Body(..., embed=True), is_active: bool = Body(..., embed=True), db: Session = Depends(get_db)):
+    db.query(Subscription).filter(Subscription.id.in_(ids)).update(
+        {"is_active": is_active}, synchronize_session=False
+    )
+    db.commit()
+    return {"detail": f"已更新 {len(ids)} 个订阅"}

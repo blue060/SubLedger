@@ -1,5 +1,5 @@
 <template>
-  <el-container class="app-layout">
+  <el-container class="app-layout" :class="{ dark: isDark }">
     <el-aside :width="isCollapsed ? '64px' : '200px'" class="app-aside">
       <div class="logo">
         <h1 v-if="!isCollapsed">SubLedger</h1>
@@ -21,6 +21,10 @@
           <el-icon><List /></el-icon>
           <span>{{ zhCN.nav.subscriptions }}</span>
         </el-menu-item>
+        <el-menu-item index="/calendar">
+          <el-icon><Calendar /></el-icon>
+          <span>{{ zhCN.nav.calendar }}</span>
+        </el-menu-item>
         <el-menu-item index="/notifications">
           <el-icon><Bell /></el-icon>
           <span>{{ zhCN.nav.notifications }}</span>
@@ -35,6 +39,7 @@
       <el-header class="app-header">
         <el-button :icon="isCollapsed ? Expand : Fold" text @click="isCollapsed = !isCollapsed" />
         <div class="header-right">
+          <el-button :icon="isDark ? Sunny : Moon" text @click="toggleTheme" />
           <span class="username">{{ authStore.username }}</span>
           <el-button text @click="handleLogout">{{ zhCN.auth.logout }}</el-button>
         </div>
@@ -49,20 +54,35 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Monitor, List, Bell, Setting, Expand, Fold } from '@element-plus/icons-vue'
+import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon } from '@element-plus/icons-vue'
 import { useAuthStore } from '../../stores/auth'
 import { zhCN } from '../../locales/zh-CN'
+import api from '../../composables/useApi'
 
 const isCollapsed = ref(false)
+const isDark = ref(false)
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
 const activeMenu = computed(() => route.path)
 
-onMounted(() => {
+onMounted(async () => {
   authStore.checkAuth()
+  // Load theme preference
+  const saved = localStorage.getItem('subledger_theme')
+  if (saved === 'dark') {
+    isDark.value = true
+    document.documentElement.classList.add('dark')
+  }
 })
+
+function toggleTheme() {
+  isDark.value = !isDark.value
+  document.documentElement.classList.toggle('dark', isDark.value)
+  localStorage.setItem('subledger_theme', isDark.value ? 'dark' : 'light')
+  api.put('/settings', { theme: isDark.value ? 'dark' : 'light' }).catch(() => {})
+}
 
 async function handleLogout() {
   await authStore.logout()
@@ -107,5 +127,18 @@ async function handleLogout() {
 }
 .el-menu {
   border-right: none;
+}
+
+/* Dark mode overrides */
+.dark .app-header {
+  border-bottom-color: #4c4d4f;
+  background: #1a1a1a;
+}
+.dark .username {
+  color: #cfd3dc;
+}
+.dark .el-main {
+  background: #1a1a1a;
+  color: #cfd3dc;
 }
 </style>

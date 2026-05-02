@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Subscription, AppSettings, Category
-from app.schemas.dashboard import DashboardSummary, CategoryStat, CalendarEntry, ExpiringSubscription
+from app.schemas.dashboard import DashboardSummary, CategoryStat, CalendarEntry, ExpiringSubscription, MonthlyTrend, BudgetStatus
 from app.services.exchange_rate import exchange_rate_service
 from app.services.billing import calculate_monthly_projection
 
@@ -122,3 +122,61 @@ def get_expiring(days: int = Query(default=30, ge=1, le=365), db: Session = Depe
             remaining_days=(sub.expiry_date - today).days,
         ))
     return result
+
+
+@router.get("/trend", response_model=list[MonthlyTrend])
+async def get_trend(months: int = Query(default=12, ge=1, le=24), db: Session = Depends(get_db)):
+    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    preferred = settings.preferred_currency if settings else "CNY"
+    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
+
+    today = date.today()
+    result = []
+    for i in range(months - 1, -1, -1):
+        target = (today.replace(day=1) - timedelta(days=1) * 30 * i)
+        target = (today.replace(day=1) - timedelta(days=i * 30)).replace(day=1)
+        # Correct month calculation
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        target = date(y, m, 1)
+
+        total = 0.0
+        for sub in subscriptions:
+            proj = calculate_monthly_projection(sub, target)
+            if proj is not None:
+                converted = await exchange_rate_service.convert(db, proj, sub.currency, preferred)
+                total += converted
+        result.append(MonthlyTrend(month=target.strftime("%Y-%m"), total=round(total, 2)))
+
+    return result
+
+
+@router.get("/budget", response_model=BudgetStatus)
+async def get_budget(db: Session = Depends(get_db)):
+    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    preferred = settings.preferred_currency if settings else "CNY"
+    budget = settings.monthly_budget if settings else None
+
+    today = date.today()
+    current_month = today.replace(day=1)
+    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
+
+    spent = 0.0
+    for sub in subscriptions:
+        proj = calculate_monthly_projection(sub, current_month)
+        if proj is not None:
+            converted = await exchange_rate_service.convert(db, proj, sub.currency, preferred)
+            spent += converted
+
+    spent = round(spent, 2)
+    remaining = round(budget - spent, 2) if budget else None
+
+    return BudgetStatus(
+        budget=budget,
+        spent=spent,
+        remaining=remaining,
+        exceeded=budget is not None and spent > budget,
+    )

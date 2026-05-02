@@ -32,6 +32,15 @@
         <el-form-item :label="zhCN.settings.reminderDays">
           <el-input-number v-model="settingsForm.reminder_days" :min="1" :max="30" />
         </el-form-item>
+        <el-form-item :label="zhCN.settings.monthlyBudget">
+          <el-input-number v-model="settingsForm.monthly_budget" :min="0" :precision="2" :placeholder="zhCN.settings.monthlyBudgetPlaceholder" />
+        </el-form-item>
+        <el-form-item :label="zhCN.settings.theme">
+          <el-radio-group v-model="settingsForm.theme">
+            <el-radio value="light">{{ zhCN.settings.themeLight }}</el-radio>
+            <el-radio value="dark">{{ zhCN.settings.themeDark }}</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSaveSettings">{{ zhCN.common.save }}</el-button>
         </el-form-item>
@@ -104,6 +113,8 @@ const passwordForm = reactive({ old_password: '', new_password: '' })
 const settingsForm = reactive({
   preferred_currency: 'CNY',
   reminder_days: 7,
+  monthly_budget: null as number | null,
+  theme: 'light',
   smtp_host: null as string | null,
   smtp_port: 465,
   smtp_user: null as string | null,

@@ -13,6 +13,7 @@ class SubscriptionCreate(BaseModel):
     notes: Optional[str] = None
     url: Optional[str] = None
     expiry_date: Optional[date] = None
+    payment_method: Optional[str] = None
     notify: bool = True
 
 
@@ -26,6 +27,7 @@ class SubscriptionUpdate(BaseModel):
     notes: Optional[str] = None
     url: Optional[str] = None
     expiry_date: Optional[date] = None
+    payment_method: Optional[str] = None
     notify: Optional[bool] = None
     is_active: Optional[bool] = None
 
@@ -44,6 +46,7 @@ class SubscriptionOut(BaseModel):
     notes: Optional[str] = None
     url: Optional[str] = None
     expiry_date: Optional[date] = None
+    payment_method: Optional[str] = None
     remaining_days: Optional[int] = None
     notify: bool
     is_active: bool

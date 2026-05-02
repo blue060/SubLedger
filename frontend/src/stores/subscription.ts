@@ -7,10 +7,10 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   const subscriptions = ref<Subscription[]>([])
   const loading = ref(false)
 
-  async function fetchList(isActive?: boolean) {
+  async function fetchList(params?: Record<string, any>) {
     loading.value = true
     try {
-      const res = await listSubscriptions(isActive)
+      const res = await listSubscriptions(params)
       subscriptions.value = res.data
     } finally {
       loading.value = false
