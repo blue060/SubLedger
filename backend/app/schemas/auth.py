@@ -3,6 +3,12 @@ from datetime import date, datetime
 
 
 class LoginRequest(BaseModel):
+    username: str = "admin"
+    password: str
+
+
+class SetupRequest(BaseModel):
+    username: str
     password: str
 
 

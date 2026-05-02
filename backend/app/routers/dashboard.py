@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Subscription, AppSettings, Category
-from app.schemas.dashboard import DashboardSummary, CategoryStat, CalendarEntry
+from app.schemas.dashboard import DashboardSummary, CategoryStat, CalendarEntry, ExpiringSubscription
 from app.services.exchange_rate import exchange_rate_service
 from app.services.billing import calculate_monthly_projection
 
@@ -101,3 +101,24 @@ async def get_calendar(db: Session = Depends(get_db)):
 
     entries.sort(key=lambda e: e.date)
     return entries
+
+
+@router.get("/expiring", response_model=list[ExpiringSubscription])
+def get_expiring(days: int = Query(default=30, ge=1, le=365), db: Session = Depends(get_db)):
+    today = date.today()
+    threshold = today + timedelta(days=days)
+    subs = db.query(Subscription).filter(
+        Subscription.is_active == True,
+        Subscription.expiry_date != None,
+        Subscription.expiry_date <= threshold,
+    ).order_by(Subscription.expiry_date).all()
+
+    result = []
+    for sub in subs:
+        result.append(ExpiringSubscription(
+            id=sub.id,
+            name=sub.name,
+            expiry_date=sub.expiry_date,
+            remaining_days=(sub.expiry_date - today).days,
+        ))
+    return result

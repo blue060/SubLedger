@@ -11,6 +11,16 @@ from app.services.billing import calculate_next_payment_date
 router = APIRouter(prefix="/api/subscriptions", tags=["订阅"], dependencies=[Depends(get_current_user)])
 
 
+def _sub_to_out(sub: Subscription) -> SubscriptionOut:
+    out = SubscriptionOut.model_validate(sub)
+    if sub.category:
+        out.category_name = sub.category.name
+        out.category_color = sub.category.color
+    if sub.expiry_date:
+        out.remaining_days = (sub.expiry_date - date.today()).days
+    return out
+
+
 @router.get("", response_model=list[SubscriptionOut])
 def list_subscriptions(
     is_active: bool | None = None,
@@ -20,14 +30,7 @@ def list_subscriptions(
     if is_active is not None:
         q = q.filter(Subscription.is_active == is_active)
     subs = q.order_by(Subscription.next_payment_date).all()
-    result = []
-    for s in subs:
-        out = SubscriptionOut.model_validate(s)
-        if s.category:
-            out.category_name = s.category.name
-            out.category_color = s.category.color
-        result.append(out)
-    return result
+    return [_sub_to_out(s) for s in subs]
 
 
 @router.post("", response_model=SubscriptionOut, status_code=status.HTTP_201_CREATED)
@@ -46,12 +49,7 @@ def create_subscription(body: SubscriptionCreate, db: Session = Depends(get_db))
     db.add(sub)
     db.commit()
     db.refresh(sub)
-
-    out = SubscriptionOut.model_validate(sub)
-    if sub.category:
-        out.category_name = sub.category.name
-        out.category_color = sub.category.color
-    return out
+    return _sub_to_out(sub)
 
 
 @router.get("/{sub_id}", response_model=SubscriptionOut)
@@ -59,11 +57,7 @@ def get_subscription(sub_id: int, db: Session = Depends(get_db)):
     sub = db.query(Subscription).filter(Subscription.id == sub_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="订阅不存在")
-    out = SubscriptionOut.model_validate(sub)
-    if sub.category:
-        out.category_name = sub.category.name
-        out.category_color = sub.category.color
-    return out
+    return _sub_to_out(sub)
 
 
 @router.put("/{sub_id}", response_model=SubscriptionOut)
@@ -84,12 +78,7 @@ def update_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Dep
 
     db.commit()
     db.refresh(sub)
-
-    out = SubscriptionOut.model_validate(sub)
-    if sub.category:
-        out.category_name = sub.category.name
-        out.category_color = sub.category.color
-    return out
+    return _sub_to_out(sub)
 
 
 @router.delete("/{sub_id}")

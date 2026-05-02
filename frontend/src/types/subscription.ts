@@ -10,6 +10,9 @@ export interface Subscription {
   category_name: string | null
   category_color: string | null
   notes: string | null
+  url: string | null
+  expiry_date: string | null
+  remaining_days: number | null
   notify: boolean
   is_active: boolean
 }
@@ -22,6 +25,8 @@ export interface SubscriptionCreate {
   first_payment_date: string
   category_id: number | null
   notes: string | null
+  url: string | null
+  expiry_date: string | null
   notify: boolean
 }
 

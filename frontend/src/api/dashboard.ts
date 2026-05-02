@@ -11,3 +11,7 @@ export function getDashboardStats() {
 export function getDashboardCalendar() {
   return api.get('/dashboard/calendar')
 }
+
+export function getDashboardExpiring() {
+  return api.get('/dashboard/expiring')
+}

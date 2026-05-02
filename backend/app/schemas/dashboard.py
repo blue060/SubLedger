@@ -22,3 +22,10 @@ class CalendarEntry(BaseModel):
     amount: float
     currency: str
     converted_amount: float
+
+
+class ExpiringSubscription(BaseModel):
+    id: int
+    name: str
+    expiry_date: date
+    remaining_days: int

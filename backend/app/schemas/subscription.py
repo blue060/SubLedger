@@ -11,6 +11,8 @@ class SubscriptionCreate(BaseModel):
     first_payment_date: date
     category_id: Optional[int] = None
     notes: Optional[str] = None
+    url: Optional[str] = None
+    expiry_date: Optional[date] = None
     notify: bool = True
 
 
@@ -22,6 +24,8 @@ class SubscriptionUpdate(BaseModel):
     first_payment_date: Optional[date] = None
     category_id: Optional[int] = None
     notes: Optional[str] = None
+    url: Optional[str] = None
+    expiry_date: Optional[date] = None
     notify: Optional[bool] = None
     is_active: Optional[bool] = None
 
@@ -38,6 +42,9 @@ class SubscriptionOut(BaseModel):
     category_name: Optional[str] = None
     category_color: Optional[str] = None
     notes: Optional[str] = None
+    url: Optional[str] = None
+    expiry_date: Optional[date] = None
+    remaining_days: Optional[int] = None
     notify: bool
     is_active: bool
 

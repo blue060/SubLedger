@@ -20,6 +20,13 @@
         </template>
       </el-table-column>
       <el-table-column prop="next_payment_date" :label="zhCN.subscription.nextPayment" />
+      <el-table-column v-if="hasExpiring" :label="zhCN.subscription.remainingDays" width="120">
+        <template #default="{ row }">
+          <el-tag v-if="row.remaining_days !== null && row.remaining_days !== undefined" :type="row.remaining_days <= 0 ? 'danger' : row.remaining_days <= 7 ? 'danger' : row.remaining_days <= 30 ? 'warning' : 'info'">
+            {{ row.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(row.remaining_days)) }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="category_name" :label="zhCN.subscription.category">
         <template #default="{ row }">
           <el-tag v-if="row.category_name" :color="row.category_color" style="color: #fff">
@@ -81,6 +88,12 @@
         <el-form-item :label="zhCN.subscription.notes">
           <el-input v-model="form.notes" type="textarea" :rows="2" />
         </el-form-item>
+        <el-form-item :label="zhCN.subscription.url">
+          <el-input v-model="form.url" placeholder="https://..." />
+        </el-form-item>
+        <el-form-item :label="zhCN.subscription.expiryDate">
+          <el-date-picker v-model="form.expiry_date" type="date" value-format="YYYY-MM-DD" clearable />
+        </el-form-item>
         <el-form-item :label="zhCN.subscription.notify">
           <el-switch v-model="form.notify" />
         </el-form-item>
@@ -94,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSubscriptionStore } from '../stores/subscription'
 import { useCategoryStore } from '../stores/category'
@@ -104,6 +117,8 @@ import type { Subscription } from '../types/subscription'
 
 const subscriptionStore = useSubscriptionStore()
 const categoryStore = useCategoryStore()
+
+const hasExpiring = computed(() => subscriptionStore.subscriptions.some((s: any) => s.remaining_days != null))
 
 const formVisible = ref(false)
 const editingId = ref<number | null>(null)
@@ -116,6 +131,8 @@ const defaultForm = {
   first_payment_date: '',
   category_id: null as number | null,
   notes: null as string | null,
+  url: null as string | null,
+  expiry_date: null as string | null,
   notify: true,
 }
 
@@ -139,6 +156,8 @@ function showForm(sub?: Subscription) {
       first_payment_date: sub.first_payment_date,
       category_id: sub.category_id,
       notes: sub.notes,
+      url: sub.url,
+      expiry_date: sub.expiry_date,
       notify: sub.notify,
     })
   } else {

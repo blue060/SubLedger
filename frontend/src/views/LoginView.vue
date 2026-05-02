@@ -5,6 +5,13 @@
       <el-form @submit.prevent="handleLogin">
         <el-form-item>
           <el-input
+            v-model="username"
+            :placeholder="zhCN.auth.usernameRequired"
+            @keyup.enter="handleLogin"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-input
             v-model="password"
             type="password"
             :placeholder="zhCN.auth.passwordRequired"
@@ -23,23 +30,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../composables/useApi'
 import { zhCN } from '../locales/zh-CN'
 
+const username = ref('admin')
 const password = ref('')
 const loading = ref(false)
 
+onMounted(async () => {
+  try {
+    const res = await api.get('/auth/setup-status')
+    if (res.data.needs_setup) {
+      window.location.href = '/setup'
+    }
+  } catch {}
+})
+
 async function handleLogin() {
-  if (!password.value) return
+  if (!username.value || !password.value) return
   loading.value = true
   try {
-    await api.post('/auth/login', { password: password.value }).then((res) => {
+    await api.post('/auth/login', { username: username.value, password: password.value }).then((res) => {
       localStorage.setItem('subledger_token', res.data.token)
     })
     ElMessage.success(zhCN.auth.loginSuccess)
-    // Use direct window.location to ensure full page reload with cookies
     window.location.href = '/dashboard'
   } catch (e: any) {
     ElMessage.error(e.response?.data?.detail || zhCN.auth.loginFailed)

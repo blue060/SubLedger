@@ -23,24 +23,22 @@ DEFAULT_CATEGORIES = [
     {"name": "工具", "icon": "Setting", "color": "#909399", "sort_order": 4},
     {"name": "游戏", "icon": "GamePad", "color": "#C0C4FC", "sort_order": 5},
     {"name": "其他", "icon": "More", "color": "#DCDFE6", "sort_order": 6},
+    {"name": "AI工具", "icon": "MagicStick", "color": "#9B59B6", "sort_order": 7},
+    {"name": "开发工具", "icon": "Cpu", "color": "#1ABC9C", "sort_order": 8},
+    {"name": "云服务", "icon": "Cloudy", "color": "#3498DB", "sort_order": 9},
 ]
 
 
 def seed_database():
-    from app.security import hash_password
-
     db = SessionLocal()
     try:
+        # Seed admin user from ADMIN_PASSWORD env var (backward compat)
         settings = get_settings()
-        if not settings.ADMIN_PASSWORD:
-            logger.error("ADMIN_PASSWORD 环境变量未设置，应用无法启动")
-            raise SystemExit(1)
-
-        # Seed admin user
-        if db.query(User).count() == 0:
+        if settings.ADMIN_PASSWORD and db.query(User).count() == 0:
+            from app.security import hash_password
             db.add(User(username="admin", password_hash=hash_password(settings.ADMIN_PASSWORD)))
             db.commit()
-            logger.info("已创建管理员账户")
+            logger.info("已通过 ADMIN_PASSWORD 创建管理员账户")
 
         # Seed default categories
         if db.query(Category).count() == 0:
