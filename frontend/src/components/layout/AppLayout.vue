@@ -1,16 +1,16 @@
 <template>
   <el-container class="app-layout" :class="{ dark: isDark }">
-    <el-aside :width="isCollapsed ? '64px' : '200px'" class="app-aside">
+    <el-aside :width="isCollapsed ? '64px' : '220px'" class="app-aside">
       <div class="logo">
-        <h1 v-if="!isCollapsed">SubLedger</h1>
-        <h1 v-else>S</h1>
+        <div class="logo-icon">S</div>
+        <span v-if="!isCollapsed" class="logo-text">SubLedger</span>
       </div>
       <el-menu
         :default-active="activeMenu"
         :collapse="isCollapsed"
-        background-color="#304156"
-        text-color="#bfcbd9"
-        active-text-color="#409eff"
+        background-color="transparent"
+        text-color="rgba(255,255,255,.65)"
+        active-text-color="#fff"
         router
       >
         <el-menu-item index="/dashboard">
@@ -69,7 +69,6 @@ const activeMenu = computed(() => route.path)
 
 onMounted(async () => {
   authStore.checkAuth()
-  // Load theme preference
   const saved = localStorage.getItem('subledger_theme')
   if (saved === 'dark') {
     isDark.value = true
@@ -91,30 +90,47 @@ async function handleLogout() {
 </script>
 
 <style scoped>
-.app-layout {
-  min-height: 100vh;
-}
+.app-layout { min-height: 100vh; }
 .app-aside {
-  background: #304156;
-  transition: width 0.3s;
+  background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
+  transition: width .3s ease;
   overflow: hidden;
+  box-shadow: 2px 0 12px rgba(0,0,0,.15);
 }
 .logo {
-  height: 60px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  gap: 10px;
+  padding: 0 16px;
 }
-.logo h1 {
-  margin: 0;
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #818cf8, #a78bfa);
+  color: #fff;
   font-size: 18px;
+  font-weight: 800;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -.5px;
 }
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #e6e6e6;
+  border-bottom: 1px solid #f1f5f9;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  background: #fff;
 }
 .header-right {
   display: flex;
@@ -122,23 +138,32 @@ async function handleLogout() {
   gap: 8px;
 }
 .username {
-  color: #606266;
+  color: #475569;
   font-size: 14px;
+  font-weight: 500;
 }
 .el-menu {
   border-right: none;
 }
+.el-menu-item.is-active {
+  background: rgba(255,255,255,.12) !important;
+  border-radius: 8px;
+  margin: 2px 8px;
+}
+.el-menu-item {
+  margin: 2px 8px;
+  border-radius: 8px;
+}
+.el-main {
+  padding: 24px;
+  background: var(--bg, #f8fafc);
+}
 
-/* Dark mode overrides */
+/* Dark */
 .dark .app-header {
-  border-bottom-color: #4c4d4f;
-  background: #1a1a1a;
+  border-bottom-color: #1e293b;
+  background: #1e293b;
 }
-.dark .username {
-  color: #cfd3dc;
-}
-.dark .el-main {
-  background: #1a1a1a;
-  color: #cfd3dc;
-}
+.dark .username { color: #cbd5e1; }
+.dark .el-main { background: #0f172a; color: #e2e8f0; }
 </style>

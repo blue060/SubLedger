@@ -1,0 +1,117 @@
+:root {
+  --primary: #4f46e5;
+  --primary-light: #818cf8;
+  --primary-bg: #eef2ff;
+  --bg: #f8fafc;
+  --card-shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --card-shadow-hover: 0 10px 25px rgba(0,0,0,.08);
+  --radius: 12px;
+  --radius-lg: 16px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Card */
+.el-card {
+  border-radius: var(--radius) !important;
+  border: none !important;
+  box-shadow: var(--card-shadow) !important;
+  transition: box-shadow .2s ease;
+}
+.el-card:hover {
+  box-shadow: var(--card-shadow-hover) !important;
+}
+.el-card__header {
+  border-bottom: 1px solid #f1f5f9 !important;
+  font-weight: 600;
+  color: #334155;
+}
+.el-card__body {
+  padding: 20px !important;
+}
+
+/* Button */
+.el-button--primary {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  border-radius: 8px !important;
+}
+.el-button--primary:hover {
+  background: var(--primary-light) !important;
+  border-color: var(--primary-light) !important;
+}
+.el-button {
+  border-radius: 8px !important;
+}
+
+/* Table */
+.el-table {
+  border-radius: var(--radius) !important;
+  overflow: hidden;
+}
+.el-table th.el-table__cell {
+  background: #f8fafc !important;
+  font-weight: 600;
+  color: #475569;
+  font-size: 13px;
+}
+.el-table td.el-table__cell {
+  padding: 14px 0 !important;
+  font-size: 14px;
+}
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: #fafbfc !important;
+}
+
+/* Dialog */
+.el-dialog {
+  border-radius: var(--radius-lg) !important;
+}
+.el-dialog__header {
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 16px !important;
+}
+
+/* Input */
+.el-input__wrapper {
+  border-radius: 8px !important;
+}
+.el-select__wrapper {
+  border-radius: 8px !important;
+}
+
+/* Tag */
+.el-tag {
+  border-radius: 6px !important;
+}
+
+/* Timeline */
+.el-timeline-item__timestamp {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Page titles */
+h2 { font-size: 22px; font-weight: 700; color: #1e293b; margin-bottom: 20px; }
+h3 { font-size: 17px; font-weight: 600; color: #334155; }
+
+/* Dark mode */
+html.dark {
+  --bg: #0f172a;
+}
+html.dark body { background: var(--bg); }
+html.dark h2, html.dark h3 { color: #e2e8f0; }
+html.dark .el-card__header { color: #e2e8f0; border-bottom-color: #1e293b !important; }
+html.dark .el-table th.el-table__cell { background: #1e293b !important; color: #94a3b8; }
+html.dark .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background: #1e293b !important; }
+html.dark .el-table td.el-table__cell { color: #cbd5e1; background: #0f172a; }
+html.dark .el-table tr:hover > td.el-table__cell { background: #1e293b !important; }

@@ -237,8 +237,11 @@ function cycleLabel(cycle: string) {
 </script>
 
 <style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.filter-bar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.filter-bar {
+  display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+  padding: 16px; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
 .batch-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.selected-info { color: #409eff; font-size: 13px; }
+.selected-info { color: #4f46e5; font-size: 13px; font-weight: 500; }
 </style>
