@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
+from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import Base, engine, SessionLocal
@@ -13,6 +14,19 @@ from app.routers import auth, health, subscriptions, categories, dashboard, noti
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger("subledger")
+
+# New columns added in recent versions that need auto-migration for existing SQLite DBs
+MIGRATIONS = [
+    ("subscriptions", "billing_cycle_num", "INTEGER DEFAULT 1 NOT NULL"),
+    ("subscriptions", "billing_cycle_unit", "VARCHAR(10) DEFAULT 'month' NOT NULL"),
+    ("subscriptions", "intro_amount", "FLOAT"),
+    ("subscriptions", "intro_months", "INTEGER"),
+    ("subscriptions", "url", "VARCHAR(500)"),
+    ("subscriptions", "expiry_date", "DATE"),
+    ("subscriptions", "payment_method", "VARCHAR(100)"),
+    ("app_settings", "monthly_budget", "FLOAT"),
+    ("app_settings", "theme", "VARCHAR(10) DEFAULT 'light' NOT NULL"),
+]
 
 DEFAULT_CATEGORIES = [
     {"name": "视频", "icon": "VideoPlay", "color": "#409EFF", "sort_order": 0},
@@ -26,6 +40,16 @@ DEFAULT_CATEGORIES = [
     {"name": "开发工具", "icon": "Cpu", "color": "#1ABC9C", "sort_order": 8},
     {"name": "云服务", "icon": "Cloudy", "color": "#3498DB", "sort_order": 9},
 ]
+
+
+def migrate_database():
+    with engine.connect() as conn:
+        for table, column, col_type in MIGRATIONS:
+            existing = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+            if column not in existing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                logger.info(f"自动迁移: {table}.{column} 已添加")
+        conn.commit()
 
 
 def seed_database():
@@ -56,6 +80,7 @@ def seed_database():
 async def lifespan(app: FastAPI):
     # Startup
     Base.metadata.create_all(bind=engine)
+    migrate_database()
     seed_database()
     start_scheduler()
     logger.info("SubLedger 启动完成")
