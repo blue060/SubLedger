@@ -28,5 +28,4 @@ data/
 Thumbs.db
 
 # Alembic
-backend/alembic/versions/*.pyc.claude/
-CLAUDE.md
+backend/alembic/versions/*.pyc
