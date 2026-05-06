@@ -62,9 +62,6 @@
         <el-form-item :label="zhCN.settings.smtpPassword">
           <el-input v-model="settingsForm.smtp_password" type="password" show-password />
         </el-form-item>
-        <el-form-item :label="zhCN.settings.smtpFrom">
-          <el-input v-model="settingsForm.smtp_from" />
-        </el-form-item>
         <el-form-item :label="zhCN.settings.smtpTls">
           <el-switch v-model="settingsForm.smtp_tls" />
         </el-form-item>
@@ -119,7 +116,6 @@ const settingsForm = reactive({
   smtp_port: 465,
   smtp_user: null as string | null,
   smtp_password: null as string | null,
-  smtp_from: null as string | null,
   smtp_tls: true,
   bark_url: null as string | null,
   serverchan_key: null as string | null,

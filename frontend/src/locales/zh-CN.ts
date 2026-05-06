@@ -129,7 +129,6 @@ export const zhCN = {
     smtpPort: 'SMTP 端口',
     smtpUser: 'SMTP 用户',
     smtpPassword: 'SMTP 密码',
-    smtpFrom: '发件人地址',
     smtpTls: '启用 TLS',
     testEmail: '发送测试邮件',
     testPush: '发送测试推送',

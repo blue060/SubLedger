@@ -52,7 +52,7 @@ class Notifier:
     async def send_email(self, subject: str, body: str, settings: AppSettings) -> None:
         msg = MIMEText(body, "plain", "utf-8")
         msg["Subject"] = subject
-        msg["From"] = settings.smtp_from or settings.smtp_user
+        msg["From"] = settings.smtp_user
         msg["To"] = settings.smtp_user
 
         if settings.smtp_tls:

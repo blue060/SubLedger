@@ -10,7 +10,6 @@ class SettingsOut(BaseModel):
     smtp_host: Optional[str] = None
     smtp_port: Optional[int] = None
     smtp_user: Optional[str] = None
-    smtp_from: Optional[str] = None
     smtp_tls: bool = True
     bark_url: Optional[str] = None
     serverchan_key: Optional[str] = None
@@ -25,7 +24,6 @@ class SettingsUpdate(BaseModel):
     smtp_port: Optional[int] = None
     smtp_user: Optional[str] = None
     smtp_password: Optional[str] = None
-    smtp_from: Optional[str] = None
     smtp_tls: Optional[bool] = None
     bark_url: Optional[str] = None
     serverchan_key: Optional[str] = None
