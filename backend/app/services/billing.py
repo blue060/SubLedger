@@ -13,9 +13,9 @@ def calculate_next_payment_date(
     if reference_date is None:
         reference_date = date.today()
 
-    # Permanent/one-time: no next payment
+    # Permanent/one-time: next payment is the first payment date itself
     if billing_cycle == "once":
-        return None
+        return first_payment_date
 
     # Built-in cycles
     if billing_cycle == "monthly":
