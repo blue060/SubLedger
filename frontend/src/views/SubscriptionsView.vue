@@ -35,12 +35,17 @@
       <el-table-column type="selection" width="40" />
       <el-table-column prop="name" :label="zhCN.subscription.name" />
       <el-table-column prop="amount" :label="zhCN.subscription.amount">
-        <template #default="{ row }">{{ formatCurrency(row.amount, row.currency) }}</template>
+        <template #default="{ row }">
+          {{ formatCurrency(row.amount, row.currency) }}
+          <span v-if="row.intro_amount != null && row.intro_months != null" class="intro-hint">({{ formatCurrency(row.intro_amount, row.currency) }}×{{ row.intro_months }}{{ zhCN.subscription.unitMonth }})</span>
+        </template>
       </el-table-column>
       <el-table-column prop="billing_cycle" :label="zhCN.subscription.cycle">
-        <template #default="{ row }">{{ cycleLabel(row.billing_cycle) }}</template>
+        <template #default="{ row }">{{ cycleLabel(row.billing_cycle, row.billing_cycle_num, row.billing_cycle_unit) }}</template>
       </el-table-column>
-      <el-table-column prop="next_payment_date" :label="zhCN.subscription.nextPayment" />
+      <el-table-column prop="next_payment_date" :label="zhCN.subscription.nextPayment">
+        <template #default="{ row }">{{ row.billing_cycle === 'once' ? zhCN.dashboard.permanentPurchase : (row.next_payment_date || '--') }}</template>
+      </el-table-column>
       <el-table-column v-if="hasExpiring" :label="zhCN.subscription.remainingDays" width="120">
         <template #default="{ row }">
           <el-tag v-if="row.remaining_days != null" :type="row.remaining_days <= 0 ? 'danger' : row.remaining_days <= 7 ? 'danger' : row.remaining_days <= 30 ? 'warning' : 'info'" size="small">
@@ -70,9 +75,9 @@
     </el-table>
 
     <el-dialog v-model="formVisible" :title="editingId ? zhCN.common.edit : zhCN.subscription.addNew" width="500px">
-      <el-form :model="form" label-width="100px">
-        <el-form-item :label="zhCN.subscription.name"><el-input v-model="form.name" /></el-form-item>
-        <el-form-item :label="zhCN.subscription.amount"><el-input-number v-model="form.amount" :min="0" :precision="2" /></el-form-item>
+      <el-form ref="formRef" :model="form" :rules="formRules" label-width="100px">
+        <el-form-item :label="zhCN.subscription.name" prop="name"><el-input v-model="form.name" /></el-form-item>
+        <el-form-item :label="zhCN.subscription.amount" prop="amount"><el-input-number v-model="form.amount" :min="0" :precision="2" /></el-form-item>
         <el-form-item :label="zhCN.subscription.currency">
           <el-select v-model="form.currency">
             <el-option label="CNY ¥" value="CNY" /><el-option label="USD $" value="USD" />
@@ -81,13 +86,25 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="zhCN.subscription.cycle">
-          <el-select v-model="form.billing_cycle">
-            <el-option :label="zhCN.subscription.monthly" value="monthly" />
-            <el-option :label="zhCN.subscription.quarterly" value="quarterly" />
-            <el-option :label="zhCN.subscription.yearly" value="yearly" />
-          </el-select>
+          <div class="cycle-group">
+            <el-select v-model="form.billing_cycle" style="width: 140px" @change="onCycleChange">
+              <el-option :label="zhCN.subscription.monthly" value="monthly" />
+              <el-option :label="zhCN.subscription.quarterly" value="quarterly" />
+              <el-option :label="zhCN.subscription.yearly" value="yearly" />
+              <el-option :label="zhCN.subscription.once" value="once" />
+              <el-option :label="zhCN.subscription.custom" value="custom" />
+            </el-select>
+            <template v-if="form.billing_cycle === 'custom'">
+              <el-input-number v-model="form.billing_cycle_num" :min="1" :max="99" style="width: 100px" />
+              <el-select v-model="form.billing_cycle_unit" style="width: 80px">
+                <el-option :label="zhCN.subscription.unitMonth" value="month" />
+                <el-option :label="zhCN.subscription.unitYear" value="year" />
+              </el-select>
+            </template>
+          </div>
+          <div v-if="form.billing_cycle === 'custom'" class="cycle-tip">{{ zhCN.subscription.customCycleExample }}</div>
         </el-form-item>
-        <el-form-item :label="zhCN.subscription.firstPayment"><el-date-picker v-model="form.first_payment_date" type="date" value-format="YYYY-MM-DD" /></el-form-item>
+        <el-form-item :label="zhCN.subscription.firstPayment" prop="first_payment_date"><el-date-picker v-model="form.first_payment_date" type="date" value-format="YYYY-MM-DD" /></el-form-item>
         <el-form-item :label="zhCN.subscription.category">
           <el-select v-model="form.category_id" clearable>
             <el-option v-for="cat in categoryStore.categories" :key="cat.id" :label="cat.name" :value="cat.id" />
@@ -97,6 +114,20 @@
         <el-form-item :label="zhCN.subscription.url"><el-input v-model="form.url" placeholder="https://..." /></el-form-item>
         <el-form-item :label="zhCN.subscription.expiryDate"><el-date-picker v-model="form.expiry_date" type="date" value-format="YYYY-MM-DD" clearable /></el-form-item>
         <el-form-item :label="zhCN.subscription.paymentMethod"><el-input v-model="form.payment_method" placeholder="如：招商银行信用卡" /></el-form-item>
+
+        <!-- Intro pricing -->
+        <el-form-item :label="zhCN.subscription.introAmount">
+          <div class="intro-group">
+            <el-input-number v-model="form.intro_amount" :precision="2" :placeholder="zhCN.subscription.introAmountPlaceholder" :controls="false" style="width: 140px" />
+            <span class="intro-x">×</span>
+            <el-input-number v-model="form.intro_months" :min="1" :max="999" :placeholder="zhCN.subscription.introMonthsPlaceholder" :controls="false" style="width: 120px" />
+            <span class="intro-unit">{{ zhCN.subscription.unitMonth }}</span>
+          </div>
+          <div v-if="form.intro_amount != null && form.intro_months != null && form.intro_amount !== 0 && form.intro_months !== 0" class="cycle-tip">
+            {{ zhCN.subscription.introTip.replace('{months}', String(form.intro_months)).replace('{amount}', formatCurrency(form.intro_amount, form.currency)) }}
+          </div>
+        </el-form-item>
+
         <el-form-item :label="zhCN.subscription.notify"><el-switch v-model="form.notify" /></el-form-item>
 
         <!-- Price history -->
@@ -120,8 +151,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, onMounted, reactive, computed, nextTick } from 'vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { useSubscriptionStore } from '../stores/subscription'
 import { useCategoryStore } from '../stores/category'
 import { zhCN } from '../locales/zh-CN'
@@ -138,13 +169,24 @@ const searchText = ref('')
 const filterCategory = ref<number | null>(null)
 const filterCurrency = ref<string | null>(null)
 const selectedIds = ref<number[]>([])
+const formRef = ref<FormInstance>()
+
+const formRules = reactive<FormRules>({
+  name: [{ required: true, message: zhCN.subscription.nameRequired, trigger: 'blur' }],
+  amount: [{ required: true, message: zhCN.subscription.amountRequired, trigger: 'blur' }],
+  first_payment_date: [{ required: true, message: zhCN.subscription.firstPaymentRequired, trigger: 'change' }],
+})
 
 const hasExpiring = computed(() => subscriptionStore.subscriptions.some((s: any) => s.remaining_days != null))
 
 const defaultForm = {
-  name: '', amount: 0, currency: 'CNY', billing_cycle: 'monthly', first_payment_date: '',
+  name: '', amount: 0, currency: 'CNY', billing_cycle: 'monthly',
+  billing_cycle_num: 1, billing_cycle_unit: 'month',
+  first_payment_date: '',
   category_id: null as number | null, notes: null as string | null, url: null as string | null,
-  expiry_date: null as string | null, payment_method: null as string | null, notify: true,
+  expiry_date: null as string | null, payment_method: null as string | null,
+  intro_amount: null as number | null, intro_months: null as number | null,
+  notify: true,
 }
 const form = reactive({ ...defaultForm })
 
@@ -162,13 +204,22 @@ function handleSelectionChange(rows: Subscription[]) {
   selectedIds.value = rows.map((r) => r.id)
 }
 
+function onCycleChange() {
+  if (form.billing_cycle !== 'custom') {
+    form.billing_cycle_num = 1
+    form.billing_cycle_unit = 'month'
+  }
+}
+
 async function showForm(sub?: Subscription) {
   if (sub) {
     editingId.value = sub.id
     Object.assign(form, {
       name: sub.name, amount: sub.amount, currency: sub.currency, billing_cycle: sub.billing_cycle,
+      billing_cycle_num: sub.billing_cycle_num || 1, billing_cycle_unit: sub.billing_cycle_unit || 'month',
       first_payment_date: sub.first_payment_date, category_id: sub.category_id, notes: sub.notes,
       url: sub.url, expiry_date: sub.expiry_date, payment_method: sub.payment_method, notify: sub.notify,
+      intro_amount: sub.intro_amount, intro_months: sub.intro_months,
     })
     try {
       const res = await getPriceHistory(sub.id)
@@ -180,9 +231,14 @@ async function showForm(sub?: Subscription) {
     priceHistory.value = []
   }
   formVisible.value = true
+  await nextTick()
+  formRef.value?.clearValidate()
 }
 
 async function handleSubmit() {
+  if (!formRef.value) return
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
   try {
     if (editingId.value) await subscriptionStore.update(editingId.value, form)
     else await subscriptionStore.create(form)
@@ -230,7 +286,12 @@ function formatCurrency(amount: number, currency: string) {
   return `${symbols[currency] || ''}${amount.toFixed(2)}`
 }
 
-function cycleLabel(cycle: string) {
+function cycleLabel(cycle: string, num?: number, unit?: string) {
+  if (cycle === 'once') return zhCN.subscription.once
+  if (cycle === 'custom' && num && unit) {
+    const unitLabel = unit === 'year' ? zhCN.subscription.unitYear : zhCN.subscription.unitMonth
+    return `每${num}${unitLabel}`
+  }
   const labels: Record<string, string> = { monthly: zhCN.subscription.monthly, quarterly: zhCN.subscription.quarterly, yearly: zhCN.subscription.yearly }
   return labels[cycle] || cycle
 }
@@ -244,4 +305,10 @@ function cycleLabel(cycle: string) {
 }
 .batch-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .selected-info { color: #4f46e5; font-size: 13px; font-weight: 500; }
+.intro-hint { color: #f59e0b; font-size: 12px; font-weight: 500; }
+.cycle-group { display: flex; align-items: center; gap: 8px; }
+.cycle-tip { color: #94a3b8; font-size: 12px; margin-top: 4px; }
+.intro-group { display: flex; align-items: center; gap: 6px; }
+.intro-x { color: #94a3b8; font-size: 14px; }
+.intro-unit { color: #94a3b8; font-size: 13px; }
 </style>

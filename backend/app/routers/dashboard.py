@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from app.models import Subscription, AppSettings, Category
 from app.schemas.dashboard import DashboardSummary, CategoryStat, CalendarEntry, ExpiringSubscription, MonthlyTrend, BudgetStatus
 from app.services.exchange_rate import exchange_rate_service
-from app.services.billing import calculate_monthly_projection
+from app.services.billing import calculate_monthly_projection, _effective_amount
 
 router = APIRouter(prefix="/api/dashboard", tags=["仪表盘"], dependencies=[Depends(get_current_user)])
 
@@ -88,13 +88,34 @@ async def get_calendar(db: Session = Depends(get_db)):
 
     entries = []
     for sub in subscriptions:
-        if sub.next_payment_date < today or sub.next_payment_date > end_date:
+        # Skip expired subscriptions
+        if sub.expiry_date and sub.expiry_date < today:
             continue
-        converted = await exchange_rate_service.convert(db, sub.amount, sub.currency, preferred)
+
+        # Handle "once" type: show on first_payment_date instead of next_payment_date
+        if sub.billing_cycle == "once":
+            pd = sub.first_payment_date
+            if pd < today or pd > end_date:
+                continue
+            effective = _effective_amount(sub, pd, today.replace(day=1))
+            converted = await exchange_rate_service.convert(db, effective, sub.currency, preferred)
+            entries.append(CalendarEntry(
+                date=pd,
+                subscription_name=sub.name,
+                amount=effective,
+                currency=sub.currency,
+                converted_amount=round(converted, 2),
+            ))
+            continue
+
+        if sub.next_payment_date is None or sub.next_payment_date < today or sub.next_payment_date > end_date:
+            continue
+        effective = _effective_amount(sub, sub.next_payment_date, today.replace(day=1))
+        converted = await exchange_rate_service.convert(db, effective, sub.currency, preferred)
         entries.append(CalendarEntry(
             date=sub.next_payment_date,
             subscription_name=sub.name,
-            amount=sub.amount,
+            amount=effective,
             currency=sub.currency,
             converted_amount=round(converted, 2),
         ))

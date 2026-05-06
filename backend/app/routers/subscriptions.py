@@ -39,7 +39,7 @@ def list_subscriptions(
         q = q.filter(Subscription.category_id == category_id)
     if currency:
         q = q.filter(Subscription.currency == currency)
-    subs = q.order_by(Subscription.next_payment_date).all()
+    subs = q.order_by(Subscription.next_payment_date.asc().nulls_last()).all()
     return [_sub_to_out(s) for s in subs]
 
 
@@ -50,7 +50,11 @@ def create_subscription(body: SubscriptionCreate, db: Session = Depends(get_db))
         if not cat:
             raise HTTPException(status_code=400, detail="分类不存在")
 
-    next_date = calculate_next_payment_date(body.first_payment_date, body.billing_cycle)
+    next_date = calculate_next_payment_date(
+        body.first_payment_date, body.billing_cycle,
+        billing_cycle_num=body.billing_cycle_num,
+        billing_cycle_unit=body.billing_cycle_unit,
+    )
 
     sub = Subscription(
         **body.model_dump(),
@@ -88,6 +92,11 @@ def update_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Dep
 
     update_data = body.model_dump(exclude_unset=True)
 
+    # Prevent writing None to NOT NULL columns
+    for nullable_key in ("billing_cycle_num", "billing_cycle_unit"):
+        if nullable_key in update_data and update_data[nullable_key] is None:
+            del update_data[nullable_key]
+
     # Track price changes
     if "amount" in update_data or "currency" in update_data:
         old_amount = sub.amount
@@ -106,9 +115,11 @@ def update_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Dep
     for key, value in update_data.items():
         setattr(sub, key, value)
 
-    if any(k in update_data for k in ("first_payment_date", "billing_cycle")):
+    if any(k in update_data for k in ("first_payment_date", "billing_cycle", "billing_cycle_num", "billing_cycle_unit")):
         sub.next_payment_date = calculate_next_payment_date(
-            sub.first_payment_date, sub.billing_cycle
+            sub.first_payment_date, sub.billing_cycle,
+            billing_cycle_num=sub.billing_cycle_num,
+            billing_cycle_unit=sub.billing_cycle_unit,
         )
 
     db.commit()

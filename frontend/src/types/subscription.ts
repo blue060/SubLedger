@@ -4,8 +4,10 @@ export interface Subscription {
   amount: number
   currency: string
   billing_cycle: string
+  billing_cycle_num: number
+  billing_cycle_unit: string
   first_payment_date: string
-  next_payment_date: string
+  next_payment_date: string | null
   category_id: number | null
   category_name: string | null
   category_color: string | null
@@ -13,6 +15,8 @@ export interface Subscription {
   url: string | null
   expiry_date: string | null
   payment_method: string | null
+  intro_amount: number | null
+  intro_months: number | null
   remaining_days: number | null
   notify: boolean
   is_active: boolean
@@ -23,12 +27,16 @@ export interface SubscriptionCreate {
   amount: number
   currency: string
   billing_cycle: string
+  billing_cycle_num: number
+  billing_cycle_unit: string
   first_payment_date: string
   category_id: number | null
   notes: string | null
   url: string | null
   expiry_date: string | null
   payment_method: string | null
+  intro_amount: number | null
+  intro_months: number | null
   notify: boolean
 }
 
@@ -37,12 +45,16 @@ export interface SubscriptionUpdate {
   amount?: number
   currency?: string
   billing_cycle?: string
+  billing_cycle_num?: number
+  billing_cycle_unit?: string
   first_payment_date?: string
   category_id?: number | null
   notes?: string | null
   url?: string | null
   expiry_date?: string | null
   payment_method?: string | null
+  intro_amount?: number | null
+  intro_months?: number | null
   notify?: boolean
   is_active?: boolean
 }
