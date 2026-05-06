@@ -108,10 +108,13 @@
           </div>
           <div class="sub-card-amount">{{ formatCurrency(sub.amount, sub.currency) }}<span class="sub-card-cycle"> /{{ cycleLabel(sub.billing_cycle, sub.billing_cycle_num, sub.billing_cycle_unit) }}</span></div>
           <div class="sub-card-info">
-            <span v-if="sub.billing_cycle === 'once'">{{ zhCN.dashboard.permanentPurchase }}</span>
+            <span v-if="sub.billing_cycle === 'once' || sub.billing_cycle === 'permanent'">{{ zhCN.dashboard.permanentPurchase }}</span>
             <span v-else>{{ zhCN.dashboard.nextBill }}: {{ sub.next_payment_date || '--' }}</span>
           </div>
-          <div v-if="sub.remaining_days != null" class="sub-card-expiry">
+          <div v-if="sub.billing_cycle === 'permanent'" class="sub-card-expiry">
+            <el-tag type="success" size="small">{{ zhCN.dashboard.permanentLabel }}</el-tag>
+          </div>
+          <div v-else-if="sub.remaining_days != null" class="sub-card-expiry">
             <el-tag :type="sub.remaining_days <= 0 ? 'danger' : sub.remaining_days <= 7 ? 'danger' : sub.remaining_days <= 30 ? 'warning' : 'info'" size="small">
               {{ sub.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(sub.remaining_days)) }}
             </el-tag>
@@ -239,6 +242,7 @@ function formatCurrency(amount: number, currency: string) {
 }
 
 function cycleLabel(cycle: string, num?: number, unit?: string) {
+  if (cycle === 'permanent') return zhCN.subscription.permanent
   if (cycle === 'once') return zhCN.subscription.once
   if (cycle === 'custom' && num && unit) {
     const unitLabel = unit === 'year' ? zhCN.subscription.unitYear : zhCN.subscription.unitMonth

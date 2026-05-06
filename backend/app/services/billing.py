@@ -14,7 +14,7 @@ def calculate_next_payment_date(
         reference_date = date.today()
 
     # Permanent/one-time: next payment is the first payment date itself
-    if billing_cycle == "once":
+    if billing_cycle in ("once", "permanent"):
         return first_payment_date
 
     # Built-in cycles
@@ -56,8 +56,8 @@ def calculate_monthly_projection(
     if target_month.year < first.year or (target_month.year == first.year and target_month.month < first.month):
         return None
 
-    # One-time: only charged in the first payment month
-    if cycle == "once":
+    # One-time / Permanent: only charged in the first payment month
+    if cycle in ("once", "permanent"):
         if target_month.year == first.year and target_month.month == first.month:
             return _effective_amount(subscription, first, target_month)
         return None

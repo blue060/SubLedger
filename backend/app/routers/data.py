@@ -94,7 +94,7 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
             amount = float(row.get("amount", 0))
             currency = row.get("currency", "CNY").strip()
             billing_cycle = row.get("billing_cycle", "monthly").strip()
-            if billing_cycle not in ("monthly", "quarterly", "yearly", "once", "custom"):
+            if billing_cycle not in ("monthly", "quarterly", "yearly", "once", "permanent", "custom"):
                 errors.append(f"第 {row_num} 行：未知的计费周期 '{billing_cycle}'，已跳过")
                 skipped += 1
                 continue

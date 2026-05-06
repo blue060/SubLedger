@@ -44,11 +44,12 @@
         <template #default="{ row }">{{ cycleLabel(row.billing_cycle, row.billing_cycle_num, row.billing_cycle_unit) }}</template>
       </el-table-column>
       <el-table-column prop="next_payment_date" :label="zhCN.subscription.nextPayment">
-        <template #default="{ row }">{{ row.billing_cycle === 'once' ? zhCN.dashboard.permanentPurchase : (row.next_payment_date || '--') }}</template>
+        <template #default="{ row }">{{ (row.billing_cycle === 'once' || row.billing_cycle === 'permanent') ? zhCN.dashboard.permanentPurchase : (row.next_payment_date || '--') }}</template>
       </el-table-column>
       <el-table-column v-if="hasExpiring" :label="zhCN.subscription.remainingDays" width="120">
         <template #default="{ row }">
-          <el-tag v-if="row.remaining_days != null" :type="row.remaining_days <= 0 ? 'danger' : row.remaining_days <= 7 ? 'danger' : row.remaining_days <= 30 ? 'warning' : 'info'" size="small">
+          <el-tag v-if="row.billing_cycle === 'permanent'" type="success" size="small">{{ zhCN.dashboard.permanentLabel }}</el-tag>
+          <el-tag v-else-if="row.remaining_days != null" :type="row.remaining_days <= 0 ? 'danger' : row.remaining_days <= 7 ? 'danger' : row.remaining_days <= 30 ? 'warning' : 'info'" size="small">
             {{ row.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(row.remaining_days)) }}
           </el-tag>
         </template>
@@ -91,6 +92,7 @@
               <el-option :label="zhCN.subscription.monthly" value="monthly" />
               <el-option :label="zhCN.subscription.quarterly" value="quarterly" />
               <el-option :label="zhCN.subscription.yearly" value="yearly" />
+              <el-option :label="zhCN.subscription.permanent" value="permanent" />
               <el-option :label="zhCN.subscription.once" value="once" />
               <el-option :label="zhCN.subscription.custom" value="custom" />
             </el-select>
@@ -287,6 +289,7 @@ function formatCurrency(amount: number, currency: string) {
 }
 
 function cycleLabel(cycle: string, num?: number, unit?: string) {
+  if (cycle === 'permanent') return zhCN.subscription.permanent
   if (cycle === 'once') return zhCN.subscription.once
   if (cycle === 'custom' && num && unit) {
     const unitLabel = unit === 'year' ? zhCN.subscription.unitYear : zhCN.subscription.unitMonth

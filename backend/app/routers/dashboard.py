@@ -92,8 +92,8 @@ async def get_calendar(db: Session = Depends(get_db)):
         if sub.expiry_date and sub.expiry_date < today:
             continue
 
-        # Handle "once" type: show on first_payment_date instead of next_payment_date
-        if sub.billing_cycle == "once":
+        # Handle "once"/"permanent" type: show on first_payment_date instead of next_payment_date
+        if sub.billing_cycle in ("once", "permanent"):
             pd = sub.first_payment_date
             if pd < today or pd > end_date:
                 continue

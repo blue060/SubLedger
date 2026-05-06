@@ -46,7 +46,8 @@ export const zhCN = {
     monthly: '每月',
     quarterly: '每季度',
     yearly: '每年',
-    once: '永久/一次性',
+    once: '一次性',
+    permanent: '永久',
     custom: '自定义',
     customCycleNum: '周期数',
     customCycleUnit: '周期单位',
@@ -103,6 +104,7 @@ export const zhCN = {
     budgetExceeded: '已超预算！',
     budgetNotSet: '未设置预算',
     permanentPurchase: '一次性买断',
+    permanentLabel: '永久',
   },
   calendar: {
     title: '扣款日历',
