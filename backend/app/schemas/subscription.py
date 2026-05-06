@@ -51,13 +51,14 @@ class SubscriptionUpdate(BaseModel):
     is_active: Optional[bool] = None
 
     @model_validator(mode="after")
-    def validate_billing_cycle_fields(self):
+    def validate_update_fields(self):
         if self.billing_cycle == "custom":
             if not self.billing_cycle_num or not self.billing_cycle_unit:
                 raise ValueError("自定义周期需要填写周期数和周期单位")
-        if self.intro_amount is not None and self.intro_months is None:
+        intro_set = self.model_fields_set
+        if "intro_amount" in intro_set and "intro_months" not in intro_set and self.intro_amount is not None:
             raise ValueError("设置优惠价格时需同时填写优惠月数")
-        if self.intro_months is not None and self.intro_amount is None:
+        if "intro_months" in intro_set and "intro_amount" not in intro_set and self.intro_months is not None:
             raise ValueError("设置优惠月数时需同时填写优惠价格")
         return self
 
