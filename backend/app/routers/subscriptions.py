@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
 from sqlalchemy.orm import Session
@@ -8,6 +9,8 @@ from app.models import Subscription, Category, PriceHistory
 from app.schemas.subscription import SubscriptionCreate, SubscriptionUpdate, SubscriptionOut
 from app.schemas.price_history import PriceHistoryOut
 from app.services.billing import calculate_next_payment_date
+
+logger = logging.getLogger("subledger")
 
 router = APIRouter(prefix="/api/subscriptions", tags=["订阅"], dependencies=[Depends(get_current_user)])
 
@@ -90,41 +93,45 @@ def update_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Dep
     if not sub:
         raise HTTPException(status_code=404, detail="订阅不存在")
 
-    update_data = body.model_dump(exclude_unset=True)
+    try:
+        update_data = body.model_dump(exclude_unset=True)
 
-    # Prevent writing None to NOT NULL columns
-    for nullable_key in ("billing_cycle_num", "billing_cycle_unit"):
-        if nullable_key in update_data and update_data[nullable_key] is None:
-            del update_data[nullable_key]
+        # Prevent writing None to NOT NULL columns
+        for nullable_key in ("billing_cycle_num", "billing_cycle_unit"):
+            if nullable_key in update_data and update_data[nullable_key] is None:
+                del update_data[nullable_key]
 
-    # Track price changes
-    if "amount" in update_data or "currency" in update_data:
-        old_amount = sub.amount
-        old_currency = sub.currency
-        new_amount = update_data.get("amount", old_amount)
-        new_currency = update_data.get("currency", old_currency)
-        if old_amount != new_amount or old_currency != new_currency:
-            db.add(PriceHistory(
-                subscription_id=sub.id,
-                old_amount=old_amount,
-                new_amount=new_amount,
-                old_currency=old_currency,
-                new_currency=new_currency,
-            ))
+        # Track price changes
+        if "amount" in update_data or "currency" in update_data:
+            old_amount = sub.amount
+            old_currency = sub.currency
+            new_amount = update_data.get("amount", old_amount)
+            new_currency = update_data.get("currency", old_currency)
+            if old_amount != new_amount or old_currency != new_currency:
+                db.add(PriceHistory(
+                    subscription_id=sub.id,
+                    old_amount=old_amount,
+                    new_amount=new_amount,
+                    old_currency=old_currency,
+                    new_currency=new_currency,
+                ))
 
-    for key, value in update_data.items():
-        setattr(sub, key, value)
+        for key, value in update_data.items():
+            setattr(sub, key, value)
 
-    if any(k in update_data for k in ("first_payment_date", "billing_cycle", "billing_cycle_num", "billing_cycle_unit")):
-        sub.next_payment_date = calculate_next_payment_date(
-            sub.first_payment_date, sub.billing_cycle,
-            billing_cycle_num=sub.billing_cycle_num,
-            billing_cycle_unit=sub.billing_cycle_unit,
-        )
+        if any(k in update_data for k in ("first_payment_date", "billing_cycle", "billing_cycle_num", "billing_cycle_unit")):
+            sub.next_payment_date = calculate_next_payment_date(
+                sub.first_payment_date, sub.billing_cycle,
+                billing_cycle_num=sub.billing_cycle_num,
+                billing_cycle_unit=sub.billing_cycle_unit,
+            )
 
-    db.commit()
-    db.refresh(sub)
-    return _sub_to_out(sub)
+        db.commit()
+        db.refresh(sub)
+        return _sub_to_out(sub)
+    except Exception as e:
+        logger.exception(f"更新订阅失败: sub_id={sub_id}, update_data={body.model_dump(exclude_unset=True)}")
+        raise HTTPException(status_code=500, detail=f"更新订阅失败: {e}")
 
 
 @router.delete("/{sub_id}")
