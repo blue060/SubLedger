@@ -3,7 +3,7 @@
     <h2>{{ zhCN.dashboard.title }}</h2>
 
     <!-- Summary cards - single compact row -->
-    <el-row :gutter="12" class="summary-row">
+    <el-row :gutter="12" class="summary-row" type="flex" align="stretch">
       <el-col :span="4" :xs="12">
         <el-card shadow="hover" class="stat-card stat-gradient-blue" :body-style="{ padding: '14px' }">
           <div class="stat-label">{{ zhCN.dashboard.monthlySpend }}</div>
@@ -31,7 +31,7 @@
           <div class="stat-value">{{ activeCount }}</div>
         </el-card>
       </el-col>
-      <el-col :span="8" :xs="24">
+      <el-col :span="6" :xs="24">
         <el-card shadow="hover" class="stat-card" :class="budget.exceeded ? 'stat-gradient-red' : 'stat-gradient-orange'" :body-style="{ padding: '14px' }">
           <div class="stat-label">{{ zhCN.dashboard.budget }}</div>
           <div v-if="budget.budget" class="budget-info">
@@ -46,24 +46,18 @@
     </el-row>
 
     <!-- Expiring soon alert -->
-    <el-row v-if="expiring.length" :gutter="16" style="margin-top: 16px">
-      <el-col :span="24">
-        <el-card shadow="hover" class="expiring-card">
-          <template #header>
-            <span style="color: #f56c6c; font-weight: 600">{{ zhCN.dashboard.expiringSoon }}</span>
-          </template>
-          <div class="expiring-list">
-            <div v-for="item in expiring" :key="item.id" class="expiring-item">
-              <span class="expiring-name">{{ item.name }}</span>
-              <el-tag :type="item.remaining_days <= 0 ? 'danger' : item.remaining_days <= 7 ? 'danger' : 'warning'" size="small">
-                {{ item.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(item.remaining_days)) }}
-              </el-tag>
-              <span class="expiring-date">{{ item.expiry_date }}</span>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div v-if="expiring.length" class="expiring-strip">
+      <span class="expiring-strip-label">{{ zhCN.dashboard.expiringSoon }}</span>
+      <div class="expiring-strip-list">
+        <div v-for="item in expiring" :key="item.id" class="expiring-item">
+          <span class="expiring-name">{{ item.name }}</span>
+          <el-tag :type="item.remaining_days <= 0 ? 'danger' : item.remaining_days <= 7 ? 'danger' : 'warning'" size="small">
+            {{ item.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(item.remaining_days)) }}
+          </el-tag>
+          <span class="expiring-date">{{ item.expiry_date }}</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Charts row: trend + pie side by side -->
     <el-row :gutter="16" style="margin-top: 16px">
@@ -86,15 +80,18 @@
       <el-col :span="24">
         <el-card shadow="hover">
           <template #header>{{ zhCN.dashboard.upcomingPayments }}</template>
-          <div v-if="calendar.length" class="upcoming-list">
-            <div v-for="entry in calendar" :key="entry.date + entry.subscription_name" class="upcoming-item">
-              <span class="upcoming-date">{{ entry.date }}</span>
-              <span class="upcoming-name">{{ entry.subscription_name }}</span>
-              <span class="upcoming-amount">{{ entry.currency }} {{ Number(entry.amount).toFixed(2) }}
-                <span v-if="Math.abs(entry.converted_amount - entry.amount) > 0.005" class="upcoming-converted">(≈ {{ Number(entry.converted_amount).toFixed(2) }})</span>
+          <el-timeline v-if="calendar.length">
+            <el-timeline-item
+              v-for="entry in calendar"
+              :key="entry.date + entry.subscription_name"
+              :timestamp="entry.date"
+            >
+              {{ entry.subscription_name }} - {{ entry.currency }} {{ Number(entry.amount).toFixed(2) }}
+              <span v-if="Math.abs(entry.converted_amount - entry.amount) > 0.005">
+                (≈ {{ Number(entry.converted_amount).toFixed(2) }})
               </span>
-            </div>
-          </div>
+            </el-timeline-item>
+          </el-timeline>
           <el-empty v-else :description="zhCN.common.noData" />
         </el-card>
       </el-col>
@@ -107,7 +104,9 @@
       <el-col v-for="sub in subscriptions.slice(0, 8)" :key="sub.id" :xs="24" :sm="12" :md="8" :lg="6">
         <el-card shadow="hover" class="sub-card" :class="{ 'sub-expiring': sub.remaining_days != null && sub.remaining_days <= 30 }">
           <div class="sub-card-header">
-            <img v-if="sub.url" :src="getFavicon(sub.url)" class="sub-card-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
+            <span class="sub-card-icon-slot">
+              <img v-if="sub.url" :src="getFavicon(sub.url)" class="sub-card-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
+            </span>
             <span class="sub-card-name">{{ sub.name }}</span>
             <el-tag v-if="sub.category_name" :color="sub.category_color" size="small" style="color: #fff; border: none">
               {{ sub.category_name }}
@@ -299,7 +298,8 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
   color: #fff;
   border: none !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  min-height: 90px;
+  display: flex;
+  flex-direction: column;
 }
 .stat-card:hover {
   transform: translateY(-2px);
@@ -350,14 +350,23 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .change-down { color: #bbf7d0; }
 
 /* Expiring */
-.expiring-card { border: none; background: #fef2f2; }
-.expiring-list { display: flex; flex-wrap: wrap; gap: 12px; }
-.expiring-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 16px; background: #fff; border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+.expiring-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: #fef2f2;
+  border-radius: 8px;
 }
-.expiring-name { font-weight: 600; font-size: 14px; color: #1e293b; }
+.expiring-strip-label { color: #f56c6c; font-weight: 600; font-size: 14px; flex-shrink: 0; }
+.expiring-strip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.expiring-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 12px; background: #fff; border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06); font-size: 13px;
+}
+.expiring-name { font-weight: 600; color: #1e293b; }
 .expiring-date { color: #94a3b8; font-size: 12px; }
 
 /* Subscription cards */
@@ -366,7 +375,8 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .sub-card:hover { transform: translateY(-2px); }
 .sub-card.sub-expiring { border-left: 3px solid #ef4444; }
 .sub-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
-.sub-card-favicon { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; }
+.sub-card-icon-slot { width: 22px; height: 22px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.sub-card-favicon { width: 22px; height: 22px; border-radius: 4px; }
 .sub-card-name { font-weight: 700; font-size: 15px; color: #1e293b; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub-card-amount { font-size: 20px; font-weight: 700; color: #4f46e5; margin-bottom: 8px; }
 .sub-card-cycle { font-size: 12px; color: #94a3b8; font-weight: 400; }
@@ -374,18 +384,6 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .sub-card-expiry { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .sub-card-expiry-date { color: #94a3b8; font-size: 12px; }
 .sub-card-method { color: #94a3b8; font-size: 12px; margin-top: 6px; }
-
-/* Upcoming payments */
-.upcoming-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.upcoming-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px; background: #f8fafc; border-radius: 8px;
-  font-size: 13px; min-width: 0;
-}
-.upcoming-date { color: #94a3b8; font-size: 12px; flex-shrink: 0; }
-.upcoming-name { font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.upcoming-amount { color: #4f46e5; font-weight: 600; flex-shrink: 0; }
-.upcoming-converted { color: #94a3b8; font-weight: 400; font-size: 12px; }
 
 /* View all link */
 .view-all-link {
@@ -395,16 +393,13 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .view-all-link:hover { color: #7c3aed; }
 
 /* Dark mode */
-html.dark .expiring-card { background: #1e1030; }
+html.dark .expiring-strip { background: #1e1030; }
 html.dark .expiring-item { background: #1e293b; }
 html.dark .expiring-name { color: #e2e8f0; }
 html.dark .sub-card-name { color: #e2e8f0; }
 html.dark .sub-card-amount { color: #818cf8; }
 html.dark .sub-card-info { color: #94a3b8; }
 html.dark .sub-card.sub-expiring { border-left-color: #f87171; background: #1e1030; }
-html.dark .upcoming-item { background: #1e293b; }
-html.dark .upcoming-name { color: #e2e8f0; }
-html.dark .upcoming-amount { color: #818cf8; }
 html.dark .view-all-link { color: #818cf8; }
 html.dark .view-all-link:hover { color: #a78bfa; }
 </style>
