@@ -2,39 +2,37 @@
   <div>
     <h2>{{ zhCN.dashboard.title }}</h2>
 
-    <!-- Summary cards -->
-    <el-row :gutter="16" class="summary-row">
-      <el-col :span="8" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-gradient-blue" :body-style="{ padding: '20px' }">
+    <!-- Summary cards - single compact row -->
+    <el-row :gutter="12" class="summary-row">
+      <el-col :span="4" :xs="12">
+        <el-card shadow="hover" class="stat-card stat-gradient-blue" :body-style="{ padding: '14px' }">
           <div class="stat-label">{{ zhCN.dashboard.monthlySpend }}</div>
           <div class="stat-value">{{ summary.monthly_total_currency }} {{ (summary.monthly_total ?? 0).toFixed(2) }}</div>
           <div v-if="summary.monthly_change != null" class="stat-change" :class="summary.monthly_change >= 0 ? 'change-up' : 'change-down'">
-            {{ summary.monthly_change >= 0 ? '↑' : '↓' }} {{ zhCN.dashboard.monthlyChange }} {{ Math.abs(summary.monthly_change).toFixed(2) }}
+            {{ summary.monthly_change >= 0 ? '↑' : '↓' }} {{ Math.abs(summary.monthly_change).toFixed(2) }}
           </div>
         </el-card>
       </el-col>
-      <el-col :span="8" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-gradient-green" :body-style="{ padding: '20px' }">
+      <el-col :span="4" :xs="12">
+        <el-card shadow="hover" class="stat-card stat-gradient-green" :body-style="{ padding: '14px' }">
           <div class="stat-label">{{ zhCN.dashboard.nextMonthProjected }}</div>
           <div class="stat-value">{{ summary.next_month_projected_currency }} {{ (summary.next_month_projected ?? 0).toFixed(2) }}</div>
         </el-card>
       </el-col>
-      <el-col :span="8" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-gradient-purple" :body-style="{ padding: '20px' }">
+      <el-col :span="4" :xs="12">
+        <el-card shadow="hover" class="stat-card stat-gradient-purple" :body-style="{ padding: '14px' }">
           <div class="stat-label">{{ zhCN.dashboard.yearlySpend }}</div>
           <div class="stat-value">{{ summary.yearly_total_currency }} {{ (summary.yearly_total ?? 0).toFixed(2) }}</div>
         </el-card>
       </el-col>
-    </el-row>
-    <el-row :gutter="16" class="summary-row">
-      <el-col :span="8" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-gradient-cyan" :body-style="{ padding: '20px' }">
+      <el-col :span="4" :xs="12">
+        <el-card shadow="hover" class="stat-card stat-gradient-cyan" :body-style="{ padding: '14px' }">
           <div class="stat-label">{{ zhCN.dashboard.allSubscriptions }}</div>
           <div class="stat-value">{{ activeCount }}</div>
         </el-card>
       </el-col>
-      <el-col :span="16" :xs="12">
-        <el-card shadow="hover" class="stat-card" :class="budget.exceeded ? 'stat-gradient-red' : 'stat-gradient-orange'" :body-style="{ padding: '20px' }">
+      <el-col :span="8" :xs="24">
+        <el-card shadow="hover" class="stat-card" :class="budget.exceeded ? 'stat-gradient-red' : 'stat-gradient-orange'" :body-style="{ padding: '14px' }">
           <div class="stat-label">{{ zhCN.dashboard.budget }}</div>
           <div v-if="budget.budget" class="budget-info">
             <div class="stat-value" :class="{ 'text-danger': budget.exceeded }">{{ budget.spent.toFixed(2) }} / {{ budget.budget.toFixed(2) }}</div>
@@ -67,39 +65,36 @@
       </el-col>
     </el-row>
 
-    <!-- Trend chart -->
+    <!-- Charts row: trend + pie side by side -->
     <el-row :gutter="16" style="margin-top: 16px">
-      <el-col :span="24">
+      <el-col :span="12" :xs="24">
         <el-card shadow="hover">
           <template #header>{{ zhCN.dashboard.monthlyTrend }}</template>
-          <div ref="trendRef" style="height: 280px"></div>
+          <div ref="trendRef" style="height: 200px"></div>
+        </el-card>
+      </el-col>
+      <el-col :span="12" :xs="24">
+        <el-card shadow="hover">
+          <template #header>{{ zhCN.dashboard.categoryBreakdown }}</template>
+          <div ref="chartRef" style="height: 200px"></div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- Charts row -->
+    <!-- Upcoming payments -->
     <el-row :gutter="16" style="margin-top: 16px">
-      <el-col :span="12" :xs="24">
-        <el-card shadow="hover">
-          <template #header>{{ zhCN.dashboard.categoryBreakdown }}</template>
-          <div ref="chartRef" style="height: 300px"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="12" :xs="24">
+      <el-col :span="24">
         <el-card shadow="hover">
           <template #header>{{ zhCN.dashboard.upcomingPayments }}</template>
-          <el-timeline v-if="calendar.length">
-            <el-timeline-item
-              v-for="entry in calendar"
-              :key="entry.date + entry.subscription_name"
-              :timestamp="entry.date"
-            >
-              {{ entry.subscription_name }} - {{ entry.currency }} {{ Number(entry.amount).toFixed(2) }}
-              <span v-if="Math.abs(entry.converted_amount - entry.amount) > 0.005">
-                (≈ {{ Number(entry.converted_amount).toFixed(2) }})
+          <div v-if="calendar.length" class="upcoming-list">
+            <div v-for="entry in calendar" :key="entry.date + entry.subscription_name" class="upcoming-item">
+              <span class="upcoming-date">{{ entry.date }}</span>
+              <span class="upcoming-name">{{ entry.subscription_name }}</span>
+              <span class="upcoming-amount">{{ entry.currency }} {{ Number(entry.amount).toFixed(2) }}
+                <span v-if="Math.abs(entry.converted_amount - entry.amount) > 0.005" class="upcoming-converted">(≈ {{ Number(entry.converted_amount).toFixed(2) }})</span>
               </span>
-            </el-timeline-item>
-          </el-timeline>
+            </div>
+          </div>
           <el-empty v-else :description="zhCN.common.noData" />
         </el-card>
       </el-col>
@@ -109,7 +104,7 @@
     <h3 style="margin-top: 24px">{{ zhCN.dashboard.allSubscriptions }}</h3>
     <el-empty v-if="!subscriptions.length" :description="zhCN.dashboard.noSubscriptions" />
     <el-row v-else :gutter="16" class="sub-cards">
-      <el-col v-for="sub in subscriptions" :key="sub.id" :xs="24" :sm="12" :md="8" :lg="6">
+      <el-col v-for="sub in subscriptions.slice(0, 8)" :key="sub.id" :xs="24" :sm="12" :md="8" :lg="6">
         <el-card shadow="hover" class="sub-card" :class="{ 'sub-expiring': sub.remaining_days != null && sub.remaining_days <= 30 }">
           <div class="sub-card-header">
             <img v-if="sub.url" :src="getFavicon(sub.url)" class="sub-card-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
@@ -141,6 +136,9 @@
         </el-card>
       </el-col>
     </el-row>
+    <div v-if="subscriptions.length > 8" style="text-align: center; margin-top: 8px">
+      <router-link to="/subscriptions" class="view-all-link">{{ zhCN.dashboard.viewAll }} →</router-link>
+    </div>
   </div>
 </template>
 
@@ -326,13 +324,13 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 }
 
 .stat-label {
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(255,255,255,.75);
   font-weight: 500;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .stat-value {
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 700;
   color: #fff;
   line-height: 1.2;
@@ -376,6 +374,25 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .sub-card-expiry-date { color: #94a3b8; font-size: 12px; }
 .sub-card-method { color: #94a3b8; font-size: 12px; margin-top: 6px; }
 
+/* Upcoming payments */
+.upcoming-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.upcoming-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; background: #f8fafc; border-radius: 8px;
+  font-size: 13px; min-width: 0;
+}
+.upcoming-date { color: #94a3b8; font-size: 12px; flex-shrink: 0; }
+.upcoming-name { font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upcoming-amount { color: #4f46e5; font-weight: 600; flex-shrink: 0; }
+.upcoming-converted { color: #94a3b8; font-weight: 400; font-size: 12px; }
+
+/* View all link */
+.view-all-link {
+  color: #4f46e5; font-size: 14px; font-weight: 500;
+  text-decoration: none; transition: color 0.2s;
+}
+.view-all-link:hover { color: #7c3aed; }
+
 /* Dark mode */
 html.dark .expiring-card { background: #1e1030; }
 html.dark .expiring-item { background: #1e293b; }
@@ -384,4 +401,9 @@ html.dark .sub-card-name { color: #e2e8f0; }
 html.dark .sub-card-amount { color: #818cf8; }
 html.dark .sub-card-info { color: #94a3b8; }
 html.dark .sub-card.sub-expiring { border-left-color: #f87171; background: #1e1030; }
+html.dark .upcoming-item { background: #1e293b; }
+html.dark .upcoming-name { color: #e2e8f0; }
+html.dark .upcoming-amount { color: #818cf8; }
+html.dark .view-all-link { color: #818cf8; }
+html.dark .view-all-link:hover { color: #a78bfa; }
 </style>

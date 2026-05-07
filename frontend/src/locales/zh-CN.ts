@@ -113,6 +113,7 @@ export const zhCN = {
     daysUntilBill: '{days}天后扣款',
     permanentPurchase: '一次性买断',
     permanentLabel: '永久',
+    viewAll: '查看全部',
   },
   calendar: {
     title: '扣款日历',
