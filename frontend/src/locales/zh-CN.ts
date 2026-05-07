@@ -76,6 +76,11 @@ export const zhCN = {
     batchEnable: '批量启用',
     batchDisable: '批量停用',
     batchDelete: '批量删除',
+    batchSetCategory: '批量改分类',
+    batchSetExpiry: '批量设到期日',
+    batchCategoryPlaceholder: '选择目标分类',
+    batchExpiryPlaceholder: '选择到期日期',
+    batchSuccess: '已更新 {count} 个订阅',
     selected: '已选 {count} 项',
     filterAll: '全部',
     priceHistory: '价格变动记录',
@@ -87,6 +92,7 @@ export const zhCN = {
   dashboard: {
     title: '仪表盘',
     monthlySpend: '本月支出',
+    monthlyChange: '较上月',
     nextMonthProjected: '下月预计',
     categoryBreakdown: '分类支出',
     upcomingPayments: '近期扣款',
@@ -111,6 +117,7 @@ export const zhCN = {
   calendar: {
     title: '扣款日历',
     paymentDay: '{count} 笔扣款',
+    monthlyTotal: '本月合计',
   },
   settings: {
     title: '系统设置',

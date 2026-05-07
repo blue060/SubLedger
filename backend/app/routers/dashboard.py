@@ -28,6 +28,8 @@ async def get_summary(db: Session = Depends(get_db)):
     monthly_total = 0.0
     next_month_total = 0.0
     yearly_total = 0.0
+    last_month_total = 0.0
+    last_month = current_month - relativedelta(months=1)
 
     for sub in subscriptions:
         proj_current = calculate_monthly_projection(sub, current_month)
@@ -40,6 +42,11 @@ async def get_summary(db: Session = Depends(get_db)):
             converted = await exchange_rate_service.convert(db, proj_next, sub.currency, preferred)
             next_month_total += converted
 
+        proj_last = calculate_monthly_projection(sub, last_month)
+        if proj_last is not None:
+            converted = await exchange_rate_service.convert(db, proj_last, sub.currency, preferred)
+            last_month_total += converted
+
         # Calculate yearly total by summing 12 monthly projections
         for i in range(12):
             m = current_month + relativedelta(months=i)
@@ -48,6 +55,8 @@ async def get_summary(db: Session = Depends(get_db)):
                 converted = await exchange_rate_service.convert(db, proj, sub.currency, preferred)
                 yearly_total += converted
 
+    monthly_change = round(monthly_total - last_month_total, 2)
+
     return DashboardSummary(
         monthly_total=round(monthly_total, 2),
         monthly_total_currency=preferred,
@@ -55,6 +64,9 @@ async def get_summary(db: Session = Depends(get_db)):
         next_month_projected_currency=preferred,
         yearly_total=round(yearly_total, 2),
         yearly_total_currency=preferred,
+        last_month_total=round(last_month_total, 2),
+        last_month_total_currency=preferred,
+        monthly_change=monthly_change,
     )
 
 
@@ -97,12 +109,16 @@ async def get_calendar(db: Session = Depends(get_db)):
     today = date.today()
     end_date = today + timedelta(days=30)
     subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
+    categories = db.query(Category).all()
+    cat_map = {c.id: c for c in categories}
 
     entries = []
     for sub in subscriptions:
         # Skip expired subscriptions
         if sub.expiry_date and sub.expiry_date < today:
             continue
+
+        cat_color = cat_map[sub.category_id].color if sub.category_id and sub.category_id in cat_map else None
 
         # Handle "once"/"permanent" type: show on first_payment_date instead of next_payment_date
         if sub.billing_cycle in ("once", "permanent"):
@@ -117,6 +133,7 @@ async def get_calendar(db: Session = Depends(get_db)):
                 amount=effective,
                 currency=sub.currency,
                 converted_amount=round(converted, 2),
+                category_color=cat_color,
             ))
             continue
 
@@ -130,6 +147,7 @@ async def get_calendar(db: Session = Depends(get_db)):
             amount=effective,
             currency=sub.currency,
             converted_amount=round(converted, 2),
+            category_color=cat_color,
         ))
 
     entries.sort(key=lambda e: e.date)

@@ -10,6 +10,9 @@ class DashboardSummary(BaseModel):
     next_month_projected_currency: str
     yearly_total: float = 0
     yearly_total_currency: str = "CNY"
+    last_month_total: float = 0
+    last_month_total_currency: str = "CNY"
+    monthly_change: float = 0
 
 
 class CategoryStat(BaseModel):
@@ -24,6 +27,7 @@ class CalendarEntry(BaseModel):
     amount: float
     currency: str
     converted_amount: float
+    category_color: Optional[str] = None
 
 
 class ExpiringSubscription(BaseModel):

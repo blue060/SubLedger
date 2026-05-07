@@ -27,13 +27,22 @@
         <span class="selected-info">{{ zhCN.subscription.selected.replace('{count}', String(selectedIds.length)) }}</span>
         <el-button size="small" type="success" @click="handleBatchToggle(true)">{{ zhCN.subscription.batchEnable }}</el-button>
         <el-button size="small" type="warning" @click="handleBatchToggle(false)">{{ zhCN.subscription.batchDisable }}</el-button>
+        <el-button size="small" @click="showBatchCategory = true">{{ zhCN.subscription.batchSetCategory }}</el-button>
+        <el-button size="small" @click="showBatchExpiry = true">{{ zhCN.subscription.batchSetExpiry }}</el-button>
         <el-button size="small" type="danger" @click="handleBatchDelete">{{ zhCN.subscription.batchDelete }}</el-button>
       </div>
     </div>
 
     <el-table :data="subscriptionStore.subscriptions" v-loading="subscriptionStore.loading" stripe @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="name" :label="zhCN.subscription.name" />
+      <el-table-column prop="name" :label="zhCN.subscription.name">
+        <template #default="{ row }">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <img v-if="row.url" :src="getFavicon(row.url)" class="sub-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
+            <span>{{ row.name }}</span>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column prop="amount" :label="zhCN.subscription.amount">
         <template #default="{ row }">
           {{ formatCurrency(row.amount, row.currency) }}
@@ -135,6 +144,7 @@
         <!-- Price history -->
         <el-collapse v-if="editingId" style="margin-top: 12px">
           <el-collapse-item :title="zhCN.subscription.priceHistory">
+            <div v-if="priceHistory.length > 1" ref="priceChartRef" style="height: 200px; margin-bottom: 12px"></div>
             <el-timeline v-if="priceHistory.length">
               <el-timeline-item v-for="h in priceHistory" :key="h.id" :timestamp="h.created_at">
                 {{ formatCurrency(h.old_amount, h.old_currency) }} → {{ formatCurrency(h.new_amount, h.new_currency) }}
@@ -149,12 +159,52 @@
         <el-button type="primary" @click="handleSubmit">{{ zhCN.common.save }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- Batch set category dialog -->
+    <el-dialog v-model="showBatchCategory" :title="zhCN.subscription.batchSetCategory" width="400px">
+      <el-select v-model="batchCategoryId" :placeholder="zhCN.subscription.batchCategoryPlaceholder" clearable style="width: 100%">
+        <el-option v-for="cat in categoryStore.categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+      </el-select>
+      <template #footer>
+        <el-button @click="showBatchCategory = false">{{ zhCN.common.cancel }}</el-button>
+        <el-button type="primary" @click="handleBatchCategory">{{ zhCN.common.save }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Batch set expiry date dialog -->
+    <el-dialog v-model="showBatchExpiry" :title="zhCN.subscription.batchSetExpiry" width="400px">
+      <el-date-picker v-model="batchExpiryDate" type="date" :placeholder="zhCN.subscription.batchExpiryPlaceholder" value-format="YYYY-MM-DD" style="width: 100%" />
+      <template #footer>
+        <el-button @click="showBatchExpiry = false">{{ zhCN.common.cancel }}</el-button>
+        <el-button type="primary" @click="handleBatchExpiry">{{ zhCN.common.save }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Batch set category dialog -->
+    <el-dialog v-model="showBatchCategory" :title="zhCN.subscription.batchSetCategory" width="400px">
+      <el-select v-model="batchCategoryId" :placeholder="zhCN.subscription.batchCategoryPlaceholder" clearable style="width: 100%">
+        <el-option v-for="cat in categoryStore.categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+      </el-select>
+      <template #footer>
+        <el-button @click="showBatchCategory = false">{{ zhCN.common.cancel }}</el-button>
+        <el-button type="primary" @click="handleBatchCategory">{{ zhCN.common.save }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Batch set expiry date dialog -->
+    <el-dialog v-model="showBatchExpiry" :title="zhCN.subscription.batchSetExpiry" width="400px">
+      <el-date-picker v-model="batchExpiryDate" type="date" :placeholder="zhCN.subscription.batchExpiryPlaceholder" value-format="YYYY-MM-DD" style="width: 100%" />
+      <template #footer>
+        <el-button @click="showBatchExpiry = false">{{ zhCN.common.cancel }}</el-button>
+        <el-button type="primary" @click="handleBatchExpiry">{{ zhCN.common.save }}</el-button>
+      </template>
+    </el-dialog>
   </div>
-</template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed, nextTick } from 'vue'
+import { ref, onMounted, reactive, computed, nextTick, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import * as echarts from 'echarts'
 import { useSubscriptionStore } from '../stores/subscription'
 import { useCategoryStore } from '../stores/category'
 import { zhCN } from '../locales/zh-CN'
@@ -167,10 +217,16 @@ const categoryStore = useCategoryStore()
 const formVisible = ref(false)
 const editingId = ref<number | null>(null)
 const priceHistory = ref<any[]>([])
+const priceChartRef = ref<HTMLElement>()
+let priceChartInstance: echarts.ECharts | null = null
 const searchText = ref('')
 const filterCategory = ref<number | null>(null)
 const filterCurrency = ref<string | null>(null)
 const selectedIds = ref<number[]>([])
+const showBatchCategory = ref(false)
+const batchCategoryId = ref<number | null>(null)
+const showBatchExpiry = ref(false)
+const batchExpiryDate = ref('')
 const formRef = ref<FormInstance>()
 
 const formRules = reactive<FormRules>({
@@ -226,6 +282,8 @@ async function showForm(sub?: Subscription) {
     try {
       const res = await getPriceHistory(sub.id)
       priceHistory.value = res.data
+      await nextTick()
+      renderPriceChart()
     } catch { priceHistory.value = [] }
   } else {
     editingId.value = null
@@ -283,9 +341,74 @@ async function handleBatchToggle(is_active: boolean) {
   } catch {}
 }
 
+async function handleBatchCategory() {
+  if (batchCategoryId.value == null) return
+  try {
+    for (const id of selectedIds.value) {
+      await patchSubscription(id, { category_id: batchCategoryId.value })
+    }
+    ElMessage.success(zhCN.subscription.batchSuccess.replace('{count}', String(selectedIds.value.length)))
+    showBatchCategory.value = false
+    selectedIds.value = []
+    batchCategoryId.value = null
+    await fetchList()
+  } catch {}
+}
+
+async function handleBatchExpiry() {
+  if (!batchExpiryDate.value) return
+  try {
+    for (const id of selectedIds.value) {
+      await patchSubscription(id, { expiry_date: batchExpiryDate.value })
+    }
+    ElMessage.success(zhCN.subscription.batchSuccess.replace('{count}', String(selectedIds.value.length)))
+    showBatchExpiry.value = false
+    selectedIds.value = []
+    batchExpiryDate.value = ''
+    await fetchList()
+  } catch {}
+}
+
+async function handleBatchCategory() {
+  if (batchCategoryId.value == null) return
+  try {
+    for (const id of selectedIds.value) {
+      await patchSubscription(id, { category_id: batchCategoryId.value })
+    }
+    ElMessage.success(zhCN.subscription.batchSuccess.replace('{count}', String(selectedIds.value.length)))
+    showBatchCategory.value = false
+    selectedIds.value = []
+    batchCategoryId.value = null
+    await fetchList()
+  } catch {}
+}
+
+async function handleBatchExpiry() {
+  if (!batchExpiryDate.value) return
+  try {
+    for (const id of selectedIds.value) {
+      await patchSubscription(id, { expiry_date: batchExpiryDate.value })
+    }
+    ElMessage.success(zhCN.subscription.batchSuccess.replace('{count}', String(selectedIds.value.length)))
+    showBatchExpiry.value = false
+    selectedIds.value = []
+    batchExpiryDate.value = ''
+    await fetchList()
+  } catch {}
+}
+
 function formatCurrency(amount: number, currency: string) {
   const symbols: Record<string, string> = { CNY: '¥', USD: '$', EUR: '€', GBP: '£', JPY: '¥', HKD: '$' }
   return `${symbols[currency] || ''}${amount.toFixed(2)}`
+}
+
+function getFavicon(url: string) {
+  try {
+    const domain = new URL(url).hostname
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+  } catch {
+    return ''
+  }
 }
 
 function cycleLabel(cycle: string, num?: number, unit?: string) {
@@ -297,6 +420,31 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
   }
   const labels: Record<string, string> = { monthly: zhCN.subscription.monthly, quarterly: zhCN.subscription.quarterly, yearly: zhCN.subscription.yearly }
   return labels[cycle] || cycle
+}
+
+function renderPriceChart() {
+  if (!priceChartRef.value || priceHistory.value.length <= 1) return
+  priceChartInstance?.dispose()
+  priceChartInstance = echarts.init(priceChartRef.value)
+  const sorted = [...priceHistory.value].reverse()
+  const labels = sorted.map((h: any) => h.created_at?.slice(0, 10) || '')
+  const amounts = sorted.map((h: any) => h.new_amount)
+  priceChartInstance.setOption({
+    tooltip: { trigger: 'axis', confine: true },
+    grid: { left: 50, right: 10, top: 10, bottom: 25 },
+    xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 11, color: '#94a3b8' } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 11, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+    series: [{
+      type: 'line',
+      data: amounts,
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      lineStyle: { color: '#4f46e5', width: 2 },
+      itemStyle: { color: '#4f46e5' },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(79,70,229,0.3)' }, { offset: 1, color: 'rgba(79,70,229,0.02)' }]) },
+    }],
+  })
 }
 </script>
 
@@ -314,4 +462,6 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .intro-group { display: flex; align-items: center; gap: 6px; }
 .intro-x { color: #94a3b8; font-size: 14px; }
 .intro-unit { color: #94a3b8; font-size: 13px; }
+.sub-favicon { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; }
+html.dark .filter-bar { background: #1e293b; }
 </style>
