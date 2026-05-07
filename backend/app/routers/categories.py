@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Body, status
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -46,3 +46,14 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     db.delete(cat)
     db.commit()
     return {"detail": "分类已删除"}
+
+
+@router.post("/reorder")
+def reorder_categories(ids: list[int] = Body(..., embed=True), db: Session = Depends(get_db)):
+    cats = db.query(Category).filter(Category.id.in_(ids)).all()
+    cat_map = {c.id: c for c in cats}
+    for i, cid in enumerate(ids):
+        if cid in cat_map:
+            cat_map[cid].sort_order = i
+    db.commit()
+    return {"detail": "排序已更新"}

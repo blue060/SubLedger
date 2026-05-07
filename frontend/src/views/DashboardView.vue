@@ -2,7 +2,7 @@
   <div>
     <h2>{{ zhCN.dashboard.title }}</h2>
 
-    <!-- Summary cards - equal width flex row -->
+    <!-- Summary cards - 4 equal + budget fixed width -->
     <div class="stat-row">
       <el-card shadow="hover" class="stat-card stat-gradient-blue" :body-style="{ padding: '14px' }">
         <div class="stat-label">{{ zhCN.dashboard.monthlySpend }}</div>
@@ -27,7 +27,7 @@
         <div class="stat-value">{{ activeCount }}</div>
         <div class="stat-change"><span>&nbsp;</span></div>
       </el-card>
-      <el-card shadow="hover" class="stat-card" :class="budget.exceeded ? 'stat-gradient-red' : 'stat-gradient-orange'" :body-style="{ padding: '14px' }">
+      <el-card shadow="hover" class="stat-card stat-card-budget" :class="budget.exceeded ? 'stat-gradient-red' : 'stat-gradient-orange'" :body-style="{ padding: '14px' }">
         <div class="stat-label">{{ zhCN.dashboard.budget }}</div>
         <div v-if="budget.budget" class="budget-info">
           <div class="stat-value" :class="{ 'text-danger': budget.exceeded }">{{ budget.spent.toFixed(2) }} / {{ budget.budget.toFixed(2) }}</div>
@@ -40,17 +40,14 @@
     </div>
 
     <!-- Expiring soon alert -->
-    <div v-if="expiring.length" class="expiring-card">
-      <div class="expiring-card-header">{{ zhCN.dashboard.expiringSoon }}</div>
-      <div class="expiring-list">
-        <div v-for="item in expiring" :key="item.id" class="expiring-item">
-          <span class="expiring-name">{{ item.name }}</span>
-          <el-tag :type="item.remaining_days <= 0 ? 'danger' : item.remaining_days <= 7 ? 'danger' : 'warning'" size="small">
-            {{ item.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(item.remaining_days)) }}
-          </el-tag>
-          <span class="expiring-date">{{ item.expiry_date }}</span>
-        </div>
-      </div>
+    <div v-if="expiring.length" class="expiring-strip">
+      <span class="expiring-strip-label">{{ zhCN.dashboard.expiringSoon }}</span>
+      <span v-for="item in expiring" :key="item.id" class="expiring-chip">
+        <span class="expiring-chip-name">{{ item.name }}</span>
+        <el-tag :type="item.remaining_days <= 7 ? 'danger' : 'warning'" size="small">
+          {{ item.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(item.remaining_days)) }}
+        </el-tag>
+      </span>
     </div>
 
     <!-- Charts row: trend + pie side by side -->
@@ -284,11 +281,12 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 </script>
 
 <style scoped>
-/* Summary cards - equal width flex row */
+/* Summary cards - 4 equal + budget fixed */
 .stat-row {
   display: flex;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  align-items: stretch;
 }
 .stat-card {
   flex: 1;
@@ -298,6 +296,10 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
   color: #fff;
   border: none !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card-budget {
+  flex: 0 0 200px;
+  min-width: 200px;
 }
 .stat-card:hover {
   transform: translateY(-2px);
@@ -346,22 +348,34 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .change-up { color: #fca5a5; }
 .change-down { color: #bbf7d0; }
 
-/* Expiring */
-.expiring-card {
-  margin-top: 16px;
-  padding: 14px 20px;
+/* Expiring strip */
+.expiring-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 8px 14px;
   background: #fef2f2;
-  border-radius: 10px;
+  border-radius: 8px;
+  font-size: 13px;
 }
-.expiring-card-header { color: #f56c6c; font-weight: 600; font-size: 14px; margin-bottom: 10px; }
-.expiring-list { display: flex; flex-wrap: wrap; gap: 10px; }
-.expiring-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 14px; background: #fff; border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06); font-size: 13px;
+.expiring-strip-label {
+  color: #f56c6c;
+  font-weight: 600;
+  font-size: 13px;
+  margin-right: 4px;
 }
-.expiring-name { font-weight: 600; color: #1e293b; }
-.expiring-date { color: #94a3b8; font-size: 12px; }
+.expiring-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+.expiring-chip-name { font-weight: 600; color: #1e293b; }
 
 /* Subscription cards */
 .sub-cards .el-col { margin-bottom: 16px; }
@@ -369,7 +383,7 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .sub-card:hover { transform: translateY(-2px); }
 .sub-card.sub-expiring { border-left: 3px solid #ef4444; }
 .sub-card-header { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; }
-.sub-card-favicon { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; }
+.sub-card-favicon { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; display: block; object-fit: contain; }
 .sub-card-favicon-placeholder { width: 22px; height: 22px; flex-shrink: 0; display: block; }
 .sub-card-name { font-weight: 700; font-size: 15px; color: #1e293b; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub-card-tag { margin-left: auto; color: #fff !important; border: none; flex-shrink: 0; }
@@ -388,9 +402,9 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .view-all-link:hover { color: #7c3aed; }
 
 /* Dark mode */
-html.dark .expiring-card { background: #1e1030; }
-html.dark .expiring-item { background: #1e293b; }
-html.dark .expiring-name { color: #e2e8f0; }
+html.dark .expiring-strip { background: #1e1030; }
+html.dark .expiring-chip { background: #1e293b; }
+html.dark .expiring-chip-name { color: #e2e8f0; }
 html.dark .sub-card-name { color: #e2e8f0; }
 html.dark .sub-card-amount { color: #818cf8; }
 html.dark .sub-card-info { color: #94a3b8; }

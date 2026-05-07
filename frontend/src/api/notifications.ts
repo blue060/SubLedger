@@ -1,7 +1,7 @@
 import api from '../composables/useApi'
 
-export function listNotifications(unreadOnly = false) {
-  return api.get('/notifications', { params: { unread_only: unreadOnly } })
+export function listNotifications(unreadOnly = false, page = 1, pageSize = 20) {
+  return api.get('/notifications', { params: { unread_only: unreadOnly, page, page_size: pageSize } })
 }
 
 export function getUnreadCount() {

@@ -9,12 +9,14 @@ from app.schemas.notification import NotificationOut, UnreadCount
 router = APIRouter(prefix="/api/notifications", tags=["通知"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("", response_model=list[NotificationOut])
-def list_notifications(unread_only: bool = False, db: Session = Depends(get_db)):
+@router.get("")
+def list_notifications(unread_only: bool = False, page: int = Query(default=1, ge=1), page_size: int = Query(default=20, ge=1, le=100), db: Session = Depends(get_db)):
     q = db.query(Notification).order_by(Notification.notify_date.desc())
     if unread_only:
         q = q.filter(Notification.is_read == False)
-    return q.all()
+    total = q.count()
+    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    return {"items": [NotificationOut.model_validate(n) for n in items], "total": total}
 
 
 @router.get("/unread-count", response_model=UnreadCount)

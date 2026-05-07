@@ -36,3 +36,11 @@ export function batchDelete(ids: number[]) {
 export function batchToggle(ids: number[], is_active: boolean) {
   return api.post('/subscriptions/batch-toggle', { ids, is_active })
 }
+
+export function batchCategory(ids: number[], category_id: number) {
+  return api.post('/subscriptions/batch-category', { ids, category_id })
+}
+
+export function batchExpiry(ids: number[], expiry_date: string) {
+  return api.post('/subscriptions/batch-expiry', { ids, expiry_date })
+}

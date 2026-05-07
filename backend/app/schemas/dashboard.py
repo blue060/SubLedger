@@ -23,6 +23,7 @@ class CategoryStat(BaseModel):
 
 class CalendarEntry(BaseModel):
     date: date
+    subscription_id: int
     subscription_name: str
     amount: float
     currency: str

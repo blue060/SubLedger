@@ -14,7 +14,7 @@
           <div class="calendar-day">{{ data.day.split('-')[2] }}</div>
           <div v-if="getPayments(data.day).length" class="calendar-payments">
             <div v-for="p in getPayments(data.day)" :key="p.subscription_name" class="calendar-payment">
-              <el-tag size="small" :color="p.category_color || '#4f46e5'" style="color: #fff; border: none" @mouseenter="hoveredPayment = p" @mouseleave="hoveredPayment = null">
+              <el-tag size="small" :color="p.category_color || '#4f46e5'" style="color: #fff; border: none; cursor: pointer" @click="goToSubscription(p.subscription_id)" @mouseenter="hoveredPayment = p" @mouseleave="hoveredPayment = null">
                 {{ p.subscription_name.length > 6 ? p.subscription_name.slice(0, 6) + '…' : p.subscription_name }}
               </el-tag>
               <div v-if="hoveredPayment && hoveredPayment.subscription_name === p.subscription_name" class="calendar-tooltip">
@@ -31,9 +31,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { getDashboardCalendar, getDashboardSummary } from '../api/dashboard'
 import { zhCN } from '../locales/zh-CN'
 
+const router = useRouter()
 const currentDate = ref(new Date())
 const payments = ref<any[]>([])
 const hoveredPayment = ref<any>(null)
@@ -70,6 +72,10 @@ watch(currentDate, (newDate, oldDate) => {
 
 function getPayments(day: string) {
   return payments.value.filter((p: any) => p.date === day)
+}
+
+function goToSubscription(id: number) {
+  router.push({ path: '/subscriptions', query: { highlight: String(id) } })
 }
 </script>
 

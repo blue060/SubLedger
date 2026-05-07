@@ -38,7 +38,7 @@
       <el-table-column prop="name" :label="zhCN.subscription.name" sortable>
         <template #default="{ row }">
           <div style="display: flex; align-items: center; gap: 8px">
-            <img v-if="row.url" :src="getFavicon(row.url)" class="sub-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
+            <img v-if="row.url" :src="getFavicon(row.url)" class="sub-favicon" width="22" height="22" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
             <span>{{ row.name }}</span>
           </div>
         </template>
@@ -189,7 +189,7 @@ import * as echarts from 'echarts'
 import { useSubscriptionStore } from '../stores/subscription'
 import { useCategoryStore } from '../stores/category'
 import { zhCN } from '../locales/zh-CN'
-import { patchSubscription, batchDelete, batchToggle, getPriceHistory } from '../api/subscriptions'
+import { patchSubscription, batchDelete, batchToggle, batchCategory, batchExpiry, getPriceHistory } from '../api/subscriptions'
 import type { Subscription } from '../types/subscription'
 
 const subscriptionStore = useSubscriptionStore()
@@ -325,9 +325,7 @@ async function handleBatchToggle(is_active: boolean) {
 async function handleBatchCategory() {
   if (batchCategoryId.value == null) return
   try {
-    for (const id of selectedIds.value) {
-      await patchSubscription(id, { category_id: batchCategoryId.value })
-    }
+    await batchCategory(selectedIds.value, batchCategoryId.value)
     ElMessage.success(zhCN.subscription.batchSuccess.replace('{count}', String(selectedIds.value.length)))
     showBatchCategory.value = false
     selectedIds.value = []
@@ -339,9 +337,7 @@ async function handleBatchCategory() {
 async function handleBatchExpiry() {
   if (!batchExpiryDate.value) return
   try {
-    for (const id of selectedIds.value) {
-      await patchSubscription(id, { expiry_date: batchExpiryDate.value })
-    }
+    await batchExpiry(selectedIds.value, batchExpiryDate.value)
     ElMessage.success(zhCN.subscription.batchSuccess.replace('{count}', String(selectedIds.value.length)))
     showBatchExpiry.value = false
     selectedIds.value = []

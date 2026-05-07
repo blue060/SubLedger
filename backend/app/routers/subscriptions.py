@@ -25,12 +25,14 @@ def _sub_to_out(sub: Subscription) -> SubscriptionOut:
     return out
 
 
-@router.get("", response_model=list[SubscriptionOut])
+@router.get("")
 def list_subscriptions(
     is_active: bool | None = None,
     search: str | None = None,
     category_id: int | None = None,
     currency: str | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=0, ge=0, le=100),
     db: Session = Depends(get_db),
 ):
     q = db.query(Subscription)
@@ -42,8 +44,10 @@ def list_subscriptions(
         q = q.filter(Subscription.category_id == category_id)
     if currency:
         q = q.filter(Subscription.currency == currency)
-    subs = q.order_by(Subscription.next_payment_date.asc().nulls_last()).all()
-    return [_sub_to_out(s) for s in subs]
+    q = q.order_by(Subscription.next_payment_date.asc().nulls_last())
+    if page_size > 0:
+        q = q.offset((page - 1) * page_size).limit(page_size)
+    return [_sub_to_out(s) for s in q.all()]
 
 
 @router.post("", response_model=SubscriptionOut, status_code=status.HTTP_201_CREATED)
@@ -175,3 +179,21 @@ def batch_toggle(ids: list[int] = Body(..., embed=True), is_active: bool = Body(
     )
     db.commit()
     return {"detail": f"已更新 {len(ids)} 个订阅"}
+
+
+@router.post("/batch-category")
+def batch_category(ids: list[int] = Body(..., embed=True), category_id: int = Body(..., embed=True), db: Session = Depends(get_db)):
+    subs = db.query(Subscription).filter(Subscription.id.in_(ids)).all()
+    for sub in subs:
+        sub.category_id = category_id
+    db.commit()
+    return {"detail": f"已更新 {len(subs)} 个订阅"}
+
+
+@router.post("/batch-expiry")
+def batch_expiry(ids: list[int] = Body(..., embed=True), expiry_date: date = Body(..., embed=True), db: Session = Depends(get_db)):
+    subs = db.query(Subscription).filter(Subscription.id.in_(ids)).all()
+    for sub in subs:
+        sub.expiry_date = expiry_date
+    db.commit()
+    return {"detail": f"已更新 {len(subs)} 个订阅"}

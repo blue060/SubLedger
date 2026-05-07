@@ -15,3 +15,7 @@ export function updateCategory(id: number, data: { name?: string; icon?: string 
 export function deleteCategory(id: number) {
   return api.delete(`/categories/${id}`)
 }
+
+export function reorderCategories(ids: number[]) {
+  return api.post('/categories/reorder', { ids })
+}

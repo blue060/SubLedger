@@ -22,38 +22,46 @@ async def get_summary(db: Session = Depends(get_db)):
     today = date.today()
     current_month = today.replace(day=1)
     next_month = (current_month + timedelta(days=32)).replace(day=1)
+    last_month = current_month - relativedelta(months=1)
 
     subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
 
-    monthly_total = 0.0
-    next_month_total = 0.0
-    yearly_total = 0.0
-    last_month_total = 0.0
-    last_month = current_month - relativedelta(months=1)
+    # Collect amounts by currency to batch conversions
+    current_by_cur: dict[str, float] = {}
+    next_by_cur: dict[str, float] = {}
+    last_by_cur: dict[str, float] = {}
+    yearly_by_cur: dict[str, float] = {}
 
     for sub in subscriptions:
         proj_current = calculate_monthly_projection(sub, current_month)
         if proj_current is not None:
-            converted = await exchange_rate_service.convert(db, proj_current, sub.currency, preferred)
-            monthly_total += converted
+            current_by_cur[sub.currency] = current_by_cur.get(sub.currency, 0) + proj_current
 
         proj_next = calculate_monthly_projection(sub, next_month)
         if proj_next is not None:
-            converted = await exchange_rate_service.convert(db, proj_next, sub.currency, preferred)
-            next_month_total += converted
+            next_by_cur[sub.currency] = next_by_cur.get(sub.currency, 0) + proj_next
 
         proj_last = calculate_monthly_projection(sub, last_month)
         if proj_last is not None:
-            converted = await exchange_rate_service.convert(db, proj_last, sub.currency, preferred)
-            last_month_total += converted
+            last_by_cur[sub.currency] = last_by_cur.get(sub.currency, 0) + proj_last
 
-        # Calculate yearly total by summing 12 monthly projections
         for i in range(12):
             m = current_month + relativedelta(months=i)
             proj = calculate_monthly_projection(sub, m)
             if proj is not None:
-                converted = await exchange_rate_service.convert(db, proj, sub.currency, preferred)
-                yearly_total += converted
+                yearly_by_cur[sub.currency] = yearly_by_cur.get(sub.currency, 0) + proj
+
+    # One conversion per currency per period
+    async def sum_converted(amounts_by_cur: dict[str, float]) -> float:
+        total = 0.0
+        for cur, amount in amounts_by_cur.items():
+            total += await exchange_rate_service.convert(db, amount, cur, preferred)
+        return total
+
+    monthly_total = await sum_converted(current_by_cur)
+    next_month_total = await sum_converted(next_by_cur)
+    last_month_total = await sum_converted(last_by_cur)
+    yearly_total = await sum_converted(yearly_by_cur)
 
     monthly_change = round(monthly_total - last_month_total, 2)
 
@@ -137,6 +145,7 @@ async def get_calendar(
             converted = await exchange_rate_service.convert(db, effective, sub.currency, preferred)
             entries.append(CalendarEntry(
                 date=pd,
+                subscription_id=sub.id,
                 subscription_name=sub.name,
                 amount=effective,
                 currency=sub.currency,
@@ -151,6 +160,7 @@ async def get_calendar(
         converted = await exchange_rate_service.convert(db, effective, sub.currency, preferred)
         entries.append(CalendarEntry(
             date=sub.next_payment_date,
+            subscription_id=sub.id,
             subscription_name=sub.name,
             amount=effective,
             currency=sub.currency,

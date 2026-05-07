@@ -73,79 +73,106 @@ def export_data(format: str = "csv", db: Session = Depends(get_db)):
     )
 
 
+def _parse_row(row: dict, row_num: int) -> tuple[Optional[Subscription], Optional[str]]:
+    name = str(row.get("name", "")).strip()
+    if not name:
+        return None, f"第 {row_num} 条：名称为空，已跳过"
+
+    amount = float(row.get("amount", 0) or 0)
+    currency = str(row.get("currency", "CNY")).strip()
+    billing_cycle = str(row.get("billing_cycle", "monthly")).strip()
+    if billing_cycle not in ("monthly", "quarterly", "yearly", "once", "permanent", "custom"):
+        return None, f"第 {row_num} 条：未知的计费周期 '{billing_cycle}'，已跳过"
+
+    billing_cycle_num = int(row.get("billing_cycle_num") or 1)
+    billing_cycle_unit = str(row.get("billing_cycle_unit", "month")).strip() or "month"
+
+    first_payment_str = str(row.get("first_payment_date", "")).strip()
+    first_payment_date = date.fromisoformat(first_payment_str) if first_payment_str else date.today()
+
+    category_id_val = row.get("category_id")
+    category_id_int = int(category_id_val) if category_id_val not in (None, "") else None
+
+    next_date = calculate_next_payment_date(
+        first_payment_date, billing_cycle,
+        billing_cycle_num=billing_cycle_num,
+        billing_cycle_unit=billing_cycle_unit,
+    )
+
+    expiry_str = str(row.get("expiry_date", "")).strip()
+    expiry_date = date.fromisoformat(expiry_str) if expiry_str else None
+
+    intro_amount_val = row.get("intro_amount")
+    intro_amount = float(intro_amount_val) if intro_amount_val not in (None, "") else None
+    intro_months_val = row.get("intro_months")
+    intro_months = int(intro_months_val) if intro_months_val not in (None, "") else None
+
+    notify_val = row.get("notify", True)
+    notify = notify_val if isinstance(notify_val, bool) else str(notify_val).strip().lower() in ("true", "1")
+    active_val = row.get("is_active", True)
+    is_active = active_val if isinstance(active_val, bool) else str(active_val).strip().lower() in ("true", "1")
+
+    sub = Subscription(
+        name=name,
+        amount=amount,
+        currency=currency,
+        billing_cycle=billing_cycle,
+        billing_cycle_num=billing_cycle_num,
+        billing_cycle_unit=billing_cycle_unit,
+        first_payment_date=first_payment_date,
+        next_payment_date=next_date,
+        category_id=category_id_int,
+        notes=str(row.get("notes", "")).strip() or None,
+        url=str(row.get("url", "")).strip() or None,
+        expiry_date=expiry_date,
+        payment_method=str(row.get("payment_method", "")).strip() or None,
+        intro_amount=intro_amount,
+        intro_months=intro_months,
+        notify=notify,
+        is_active=is_active,
+    )
+    return sub, None
+
+
 @router.post("/import")
 async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db)):
     content = await file.read()
     text = content.decode("utf-8-sig")
 
-    reader = csv.DictReader(io.StringIO(text))
     imported = 0
     skipped = 0
     errors = []
 
-    for row_num, row in enumerate(reader, start=2):
-        try:
-            name = row.get("name", "").strip()
-            if not name:
-                errors.append(f"第 {row_num} 行：名称为空，已跳过")
+    is_json = file.filename and file.filename.endswith(".json")
+
+    if is_json:
+        data = json.loads(text)
+        for i, row in enumerate(data, start=1):
+            try:
+                sub, err = _parse_row(row, i)
+                if err:
+                    errors.append(err)
+                    skipped += 1
+                    continue
+                db.add(sub)
+                imported += 1
+            except Exception as e:
+                errors.append(f"第 {i} 条：{str(e)}")
                 skipped += 1
-                continue
-
-            amount = float(row.get("amount", 0))
-            currency = row.get("currency", "CNY").strip()
-            billing_cycle = row.get("billing_cycle", "monthly").strip()
-            if billing_cycle not in ("monthly", "quarterly", "yearly", "once", "permanent", "custom"):
-                errors.append(f"第 {row_num} 行：未知的计费周期 '{billing_cycle}'，已跳过")
+    else:
+        reader = csv.DictReader(io.StringIO(text))
+        for row_num, row in enumerate(reader, start=2):
+            try:
+                sub, err = _parse_row(row, row_num)
+                if err:
+                    errors.append(err)
+                    skipped += 1
+                    continue
+                db.add(sub)
+                imported += 1
+            except Exception as e:
+                errors.append(f"第 {row_num} 行：{str(e)}")
                 skipped += 1
-                continue
-
-            billing_cycle_num = int(row.get("billing_cycle_num", "1").strip() or "1")
-            billing_cycle_unit = row.get("billing_cycle_unit", "month").strip() or "month"
-
-            first_payment_str = row.get("first_payment_date", "").strip()
-            first_payment_date = date.fromisoformat(first_payment_str) if first_payment_str else date.today()
-
-            category_id = row.get("category_id", "").strip()
-            category_id_int = int(category_id) if category_id else None
-
-            next_date = calculate_next_payment_date(
-                first_payment_date, billing_cycle,
-                billing_cycle_num=billing_cycle_num,
-                billing_cycle_unit=billing_cycle_unit,
-            )
-
-            expiry_str = row.get("expiry_date", "").strip()
-            expiry_date = date.fromisoformat(expiry_str) if expiry_str else None
-
-            intro_amount_str = row.get("intro_amount", "").strip()
-            intro_amount = float(intro_amount_str) if intro_amount_str else None
-            intro_months_str = row.get("intro_months", "").strip()
-            intro_months = int(intro_months_str) if intro_months_str else None
-
-            sub = Subscription(
-                name=name,
-                amount=amount,
-                currency=currency,
-                billing_cycle=billing_cycle,
-                billing_cycle_num=billing_cycle_num,
-                billing_cycle_unit=billing_cycle_unit,
-                first_payment_date=first_payment_date,
-                next_payment_date=next_date,
-                category_id=category_id_int,
-                notes=row.get("notes", "").strip() or None,
-                url=row.get("url", "").strip() or None,
-                expiry_date=expiry_date,
-                payment_method=row.get("payment_method", "").strip() or None,
-                intro_amount=intro_amount,
-                intro_months=intro_months,
-                notify=row.get("notify", "true").strip().lower() in ("true", "1"),
-                is_active=row.get("is_active", "true").strip().lower() in ("true", "1"),
-            )
-            db.add(sub)
-            imported += 1
-        except Exception as e:
-            errors.append(f"第 {row_num} 行：{str(e)}")
-            skipped += 1
 
     db.commit()
     return {"imported": imported, "skipped": skipped, "errors": errors}

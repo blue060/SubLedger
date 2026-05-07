@@ -51,10 +51,12 @@
     <el-card class="settings-card">
       <template #header>{{ zhCN.settings.categorySection }}</template>
       <div class="category-list">
-        <div v-for="cat in categories" :key="cat.id" class="category-item">
+        <div v-for="(cat, index) in categories" :key="cat.id" class="category-item">
           <span class="category-color-dot" :style="{ background: cat.color || '#909399' }"></span>
           <span class="category-name">{{ cat.name }}</span>
           <span class="category-actions">
+            <el-button size="small" :disabled="index === 0" @click="moveCategory(index, -1)">↑</el-button>
+            <el-button size="small" :disabled="index === categories.length - 1" @click="moveCategory(index, 1)">↓</el-button>
             <el-button size="small" @click="editCategory(cat)">{{ zhCN.common.edit }}</el-button>
             <el-button size="small" type="danger" @click="handleDeleteCategory(cat)">{{ zhCN.common.delete }}</el-button>
           </span>
@@ -123,7 +125,7 @@
       <template #header>{{ zhCN.settings.dataSection }}</template>
       <el-button @click="handleExport('csv')">{{ zhCN.settings.exportCsv }}</el-button>
       <el-button @click="handleExport('json')">{{ zhCN.settings.exportJson }}</el-button>
-      <el-upload :before-upload="handleImport" :show-file-list="false" accept=".csv">
+      <el-upload :before-upload="handleImport" :show-file-list="false" accept=".csv,.json">
         <el-button type="primary" style="margin-left: 12px">{{ zhCN.settings.importData }}</el-button>
       </el-upload>
     </el-card>
@@ -136,6 +138,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSettings, updateSettings, changePassword, testEmail, testPush } from '../api/settings'
 import { exportData, importData } from '../api/data'
 import { useCategoryStore } from '../stores/category'
+import { reorderCategories } from '../api/categories'
 import { zhCN } from '../locales/zh-CN'
 
 const categoryStore = useCategoryStore()
@@ -254,6 +257,16 @@ async function handleSaveCategory() {
     }
     ElMessage.success(zhCN.common.success)
     categoryDialogVisible.value = false
+  } catch {}
+}
+
+async function moveCategory(index: number, direction: -1 | 1) {
+  const list = [...categories.value]
+  const target = index + direction
+  ;[list[index], list[target]] = [list[target], list[index]]
+  try {
+    await reorderCategories(list.map((c: any) => c.id))
+    await categoryStore.fetchList()
   } catch {}
 }
 

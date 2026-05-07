@@ -9,7 +9,7 @@
     </div>
 
     <div class="filter-bar">
-      <el-radio-group v-model="filter" size="small" @change="fetchNotifications">
+      <el-radio-group v-model="filter" size="small" @change="handleFilterChange">
         <el-radio-button value="all">{{ zhCN.notification.filterAll }}</el-radio-button>
         <el-radio-button value="unread">{{ zhCN.notification.filterUnread }}</el-radio-button>
       </el-radio-group>
@@ -35,6 +35,16 @@
         </div>
       </div>
     </el-card>
+
+    <div v-if="total > pageSize" style="display: flex; justify-content: center; margin-top: 16px">
+      <el-pagination
+        v-model:current-page="currentPage"
+        :page-size="pageSize"
+        :total="total"
+        layout="prev, pager, next"
+        @current-change="fetchNotifications"
+      />
+    </div>
   </div>
 </template>
 
@@ -48,10 +58,19 @@ import { zhCN } from '../locales/zh-CN'
 const router = useRouter()
 const notifications = ref<any[]>([])
 const filter = ref('all')
+const currentPage = ref(1)
+const pageSize = 20
+const total = ref(0)
 
 async function fetchNotifications() {
-  const res = await listNotifications(filter.value === 'unread')
-  notifications.value = res.data
+  const res = await listNotifications(filter.value === 'unread', currentPage.value, pageSize)
+  notifications.value = res.data.items
+  total.value = res.data.total
+}
+
+function handleFilterChange() {
+  currentPage.value = 1
+  fetchNotifications()
 }
 
 onMounted(fetchNotifications)
@@ -71,18 +90,14 @@ async function handleMarkAllRead() {
 async function handleDelete(id: number) {
   await ElMessageBox.confirm(zhCN.notification.deleteConfirm, zhCN.common.confirm, { type: 'warning' })
   await deleteNotification(id)
-  notifications.value = notifications.value.filter((x) => x.id !== id)
+  await fetchNotifications()
   ElMessage.success(zhCN.common.success)
 }
 
 async function handleDeleteRead() {
   await ElMessageBox.confirm(zhCN.notification.deleteReadConfirm, zhCN.common.confirm, { type: 'warning' })
   await deleteReadNotifications()
-  if (filter.value === 'unread') {
-    notifications.value = []
-  } else {
-    notifications.value = notifications.value.filter((x) => !x.is_read)
-  }
+  await fetchNotifications()
   ElMessage.success(zhCN.common.success)
 }
 
