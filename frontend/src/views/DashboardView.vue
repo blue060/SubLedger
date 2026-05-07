@@ -98,7 +98,7 @@
       <el-col v-for="sub in subscriptions.slice(0, 8)" :key="sub.id" :xs="24" :sm="12" :md="8" :lg="6">
         <el-card shadow="hover" class="sub-card" :class="{ 'sub-expiring': sub.remaining_days != null && sub.remaining_days <= 30 }">
           <div class="sub-card-header">
-            <img v-if="sub.url" :src="getFavicon(sub.url)" class="sub-card-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
+            <img v-if="sub.url" :src="getFavicon(sub.url)" class="sub-card-favicon" width="22" height="22" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
             <span v-else class="sub-card-favicon-placeholder"></span>
             <span class="sub-card-name">{{ sub.name }}</span>
             <el-tag v-if="sub.category_name" :color="sub.category_color" size="small" class="sub-card-tag">
