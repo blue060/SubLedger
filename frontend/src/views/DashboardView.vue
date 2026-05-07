@@ -98,9 +98,8 @@
       <el-col v-for="sub in subscriptions.slice(0, 8)" :key="sub.id" :xs="24" :sm="12" :md="8" :lg="6">
         <el-card shadow="hover" class="sub-card" :class="{ 'sub-expiring': sub.remaining_days != null && sub.remaining_days <= 30 }">
           <div class="sub-card-header">
-            <span class="sub-card-icon-slot">
-              <img v-if="sub.url" :src="getFavicon(sub.url)" class="sub-card-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
-            </span>
+            <img v-if="sub.url" :src="getFavicon(sub.url)" class="sub-card-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
+            <span v-else class="sub-card-favicon-placeholder"></span>
             <span class="sub-card-name">{{ sub.name }}</span>
             <el-tag v-if="sub.category_name" :color="sub.category_color" size="small" class="sub-card-tag">
               {{ sub.category_name }}
@@ -370,8 +369,8 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .sub-card:hover { transform: translateY(-2px); }
 .sub-card.sub-expiring { border-left: 3px solid #ef4444; }
 .sub-card-header { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; }
-.sub-card-icon-slot { width: 22px; height: 22px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
-.sub-card-favicon { width: 22px; height: 22px; border-radius: 4px; }
+.sub-card-favicon { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; }
+.sub-card-favicon-placeholder { width: 22px; height: 22px; flex-shrink: 0; display: block; }
 .sub-card-name { font-weight: 700; font-size: 15px; color: #1e293b; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub-card-tag { margin-left: auto; color: #fff !important; border: none; flex-shrink: 0; }
 .sub-card-amount { font-size: 20px; font-weight: 700; color: #4f46e5; margin-bottom: 8px; }
