@@ -12,7 +12,7 @@ logger = logging.getLogger("subledger")
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> dict:
     token = request.cookies.get("subledger_token")
     auth_header = request.headers.get("Authorization", "")
-    logger.info(f"AUTH DEBUG cookie={'yes' if token else 'no'} header={'yes' if auth_header.startswith('Bearer ') else 'no'} path={request.url.path}")
+    logger.debug(f"AUTH cookie={'yes' if token else 'no'} header={'yes' if auth_header.startswith('Bearer ') else 'no'} path={request.url.path}")
     if not token:
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
