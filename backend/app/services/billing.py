@@ -99,8 +99,22 @@ def _effective_amount(subscription, payment_date: date, target_month: date) -> f
 
     if intro_amount is not None and intro_months is not None and intro_months > 0:
         first = subscription.first_payment_date
-        months_since_start = (target_month.year - first.year) * 12 + (target_month.month - first.month)
-        if months_since_start < intro_months:
+        intro_end = first + relativedelta(months=intro_months)
+        month_start = target_month
+        month_end = target_month + relativedelta(months=1)
+
+        # Entire month within intro period
+        if intro_end >= month_end:
             return intro_amount
+
+        # Entire month after intro period
+        if intro_end <= month_start:
+            return subscription.amount
+
+        # Month straddles the intro boundary — prorate by days
+        intro_days = (intro_end - month_start).days
+        full_price_days = (month_end - intro_end).days
+        total_days = (month_end - month_start).days
+        return round(intro_amount * intro_days / total_days + subscription.amount * full_price_days / total_days, 2)
 
     return subscription.amount
