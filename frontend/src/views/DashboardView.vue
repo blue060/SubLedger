@@ -299,6 +299,7 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
   color: #fff;
   border: none !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 90px;
 }
 .stat-card:hover {
   transform: translateY(-2px);
