@@ -18,6 +18,8 @@ def get_settings(db: Session = Depends(get_db)):
     return SettingsOut(
         preferred_currency=settings.preferred_currency,
         reminder_days=settings.reminder_days,
+        monthly_budget=settings.monthly_budget,
+        theme=settings.theme,
         smtp_host=settings.smtp_host,
         smtp_port=settings.smtp_port,
         smtp_user=settings.smtp_user,
@@ -42,6 +44,8 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
     return SettingsOut(
         preferred_currency=settings.preferred_currency,
         reminder_days=settings.reminder_days,
+        monthly_budget=settings.monthly_budget,
+        theme=settings.theme,
         smtp_host=settings.smtp_host,
         smtp_port=settings.smtp_port,
         smtp_user=settings.smtp_user,

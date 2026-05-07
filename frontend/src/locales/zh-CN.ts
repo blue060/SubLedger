@@ -165,5 +165,12 @@ export const zhCN = {
     upcoming: '即将扣款',
     markAllRead: '全部标记已读',
     markRead: '标记已读',
+    deleteRead: '删除已读',
+    deleteConfirm: '确定删除此通知吗？',
+    deleteReadConfirm: '确定删除所有已读通知吗？',
+    filterAll: '全部',
+    filterUnread: '未读',
+    emailSent: '已发邮件',
+    pushSent: '已推送',
   },
 }

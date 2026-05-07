@@ -26,7 +26,11 @@
           <span>{{ zhCN.nav.calendar }}</span>
         </el-menu-item>
         <el-menu-item index="/notifications">
-          <el-icon><Bell /></el-icon>
+          <el-icon>
+            <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="notification-badge">
+              <Bell />
+            </el-badge>
+          </el-icon>
           <span>{{ zhCN.nav.notifications }}</span>
         </el-menu-item>
         <el-menu-item index="/settings">
@@ -52,20 +56,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon } from '@element-plus/icons-vue'
 import { useAuthStore } from '../../stores/auth'
 import { zhCN } from '../../locales/zh-CN'
 import api from '../../composables/useApi'
+import { getUnreadCount } from '../../api/notifications'
 
 const isCollapsed = ref(false)
 const isDark = ref(false)
+const unreadCount = ref(0)
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
 const activeMenu = computed(() => route.path)
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+async function fetchUnreadCount() {
+  try {
+    const res = await getUnreadCount()
+    unreadCount.value = res.data.count
+  } catch {}
+}
 
 onMounted(async () => {
   authStore.checkAuth()
@@ -74,6 +89,12 @@ onMounted(async () => {
     isDark.value = true
     document.documentElement.classList.add('dark')
   }
+  fetchUnreadCount()
+  pollTimer = setInterval(fetchUnreadCount, 60000)
+})
+
+onBeforeUnmount(() => {
+  if (pollTimer) clearInterval(pollTimer)
 })
 
 function toggleTheme() {
@@ -153,6 +174,10 @@ async function handleLogout() {
 .el-menu-item {
   margin: 2px 8px;
   border-radius: 8px;
+}
+.notification-badge :deep(.el-badge__content) {
+  top: -2px;
+  right: -8px;
 }
 .el-main {
   padding: 24px;

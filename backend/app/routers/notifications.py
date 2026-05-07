@@ -39,3 +39,20 @@ def mark_all_read(db: Session = Depends(get_db)):
     db.query(Notification).filter(Notification.is_read == False).update({"is_read": True})
     db.commit()
     return {"detail": "全部标记已读"}
+
+
+@router.delete("/{notification_id}")
+def delete_notification(notification_id: int, db: Session = Depends(get_db)):
+    n = db.query(Notification).filter(Notification.id == notification_id).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="通知不存在")
+    db.delete(n)
+    db.commit()
+    return {"detail": "通知已删除"}
+
+
+@router.delete("")
+def delete_read_notifications(db: Session = Depends(get_db)):
+    count = db.query(Notification).filter(Notification.is_read == True).delete()
+    db.commit()
+    return {"detail": f"已删除 {count} 条已读通知"}

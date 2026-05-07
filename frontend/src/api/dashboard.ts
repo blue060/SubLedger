@@ -8,8 +8,8 @@ export function getDashboardStats() {
   return api.get('/dashboard/stats')
 }
 
-export function getDashboardCalendar() {
-  return api.get('/dashboard/calendar')
+export function getDashboardCalendar(year?: number, month?: number) {
+  return api.get('/dashboard/calendar', { params: { year, month } })
 }
 
 export function getDashboardExpiring() {

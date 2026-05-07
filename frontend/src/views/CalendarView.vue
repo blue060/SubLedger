@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { getDashboardCalendar, getDashboardSummary } from '../api/dashboard'
 import { zhCN } from '../locales/zh-CN'
 
@@ -40,16 +40,32 @@ const hoveredPayment = ref<any>(null)
 const monthlyTotal = ref(0)
 const preferredCurrency = ref('CNY')
 
-onMounted(async () => {
+async function fetchCalendarData() {
   try {
-    const [calRes, summaryRes] = await Promise.all([
-      getDashboardCalendar(),
-      getDashboardSummary(),
-    ])
+    const d = currentDate.value
+    const year = d.getFullYear()
+    const month = d.getMonth() + 1
+
+    const calRes = await getDashboardCalendar(year, month)
     payments.value = calRes.data
-    monthlyTotal.value = summaryRes.data.monthly_total ?? 0
-    preferredCurrency.value = summaryRes.data.monthly_total_currency ?? 'CNY'
+
+    // Compute monthly total from calendar data (using converted amounts)
+    monthlyTotal.value = calRes.data.reduce((sum: number, p: any) => sum + p.converted_amount, 0)
+
+    // Fetch preferred currency once
+    if (preferredCurrency.value === 'CNY') {
+      const summaryRes = await getDashboardSummary()
+      preferredCurrency.value = summaryRes.data.monthly_total_currency ?? 'CNY'
+    }
   } catch {}
+}
+
+onMounted(fetchCalendarData)
+
+watch(currentDate, (newDate, oldDate) => {
+  if (newDate.getMonth() !== oldDate.getMonth() || newDate.getFullYear() !== oldDate.getFullYear()) {
+    fetchCalendarData()
+  }
 })
 
 function getPayments(day: string) {

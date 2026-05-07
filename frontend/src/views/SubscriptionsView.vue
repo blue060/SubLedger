@@ -35,7 +35,7 @@
 
     <el-table :data="subscriptionStore.subscriptions" v-loading="subscriptionStore.loading" stripe @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="name" :label="zhCN.subscription.name">
+      <el-table-column prop="name" :label="zhCN.subscription.name" sortable>
         <template #default="{ row }">
           <div style="display: flex; align-items: center; gap: 8px">
             <img v-if="row.url" :src="getFavicon(row.url)" class="sub-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
@@ -43,19 +43,19 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="amount" :label="zhCN.subscription.amount">
+      <el-table-column prop="amount" :label="zhCN.subscription.amount" sortable>
         <template #default="{ row }">
           {{ formatCurrency(row.amount, row.currency) }}
           <span v-if="row.intro_amount != null && row.intro_months != null" class="intro-hint">({{ formatCurrency(row.intro_amount, row.currency) }}×{{ row.intro_months }}{{ zhCN.subscription.unitMonth }})</span>
         </template>
       </el-table-column>
-      <el-table-column prop="billing_cycle" :label="zhCN.subscription.cycle">
+      <el-table-column prop="billing_cycle" :label="zhCN.subscription.cycle" sortable>
         <template #default="{ row }">{{ cycleLabel(row.billing_cycle, row.billing_cycle_num, row.billing_cycle_unit) }}</template>
       </el-table-column>
-      <el-table-column prop="next_payment_date" :label="zhCN.subscription.nextPayment">
+      <el-table-column prop="next_payment_date" :label="zhCN.subscription.nextPayment" sortable>
         <template #default="{ row }">{{ (row.billing_cycle === 'once' || row.billing_cycle === 'permanent') ? zhCN.dashboard.permanentPurchase : (row.next_payment_date || '--') }}</template>
       </el-table-column>
-      <el-table-column v-if="hasExpiring" :label="zhCN.subscription.remainingDays" width="120">
+      <el-table-column v-if="hasExpiring" prop="remaining_days" :label="zhCN.subscription.remainingDays" width="120" :sort-method="(a: any, b: any) => (a.remaining_days ?? Infinity) - (b.remaining_days ?? Infinity)" sortable>
         <template #default="{ row }">
           <el-tag v-if="row.billing_cycle === 'permanent'" type="success" size="small">{{ zhCN.dashboard.permanentLabel }}</el-tag>
           <el-tag v-else-if="row.remaining_days != null" :type="row.remaining_days <= 0 ? 'danger' : row.remaining_days <= 7 ? 'danger' : row.remaining_days <= 30 ? 'warning' : 'info'" size="small">
@@ -63,15 +63,15 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="payment_method" :label="zhCN.subscription.paymentMethod" width="120">
+      <el-table-column prop="payment_method" :label="zhCN.subscription.paymentMethod" width="120" sortable>
         <template #default="{ row }">{{ row.payment_method || '-' }}</template>
       </el-table-column>
-      <el-table-column prop="category_name" :label="zhCN.subscription.category">
+      <el-table-column prop="category_name" :label="zhCN.subscription.category" sortable>
         <template #default="{ row }">
           <el-tag v-if="row.category_name" :color="row.category_color" style="color: #fff">{{ row.category_name }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="is_active" :label="zhCN.subscription.active" width="80">
+      <el-table-column prop="is_active" :label="zhCN.subscription.active" width="80" sortable>
         <template #default="{ row }">
           <el-switch v-model="row.is_active" @change="handleToggle(row)" />
         </template>

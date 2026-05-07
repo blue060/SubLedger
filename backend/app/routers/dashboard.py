@@ -102,30 +102,38 @@ async def get_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/calendar", response_model=list[CalendarEntry])
-async def get_calendar(db: Session = Depends(get_db)):
+async def get_calendar(
+    year: Optional[int] = Query(default=None, ge=2000, le=2100),
+    month: Optional[int] = Query(default=None, ge=1, le=12),
+    db: Session = Depends(get_db),
+):
     settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
     preferred = settings.preferred_currency if settings else "CNY"
 
     today = date.today()
-    end_date = today + timedelta(days=30)
+    if year and month:
+        start_date = date(year, month, 1)
+        end_date = (start_date + relativedelta(months=1)) - timedelta(days=1)
+    else:
+        start_date = today
+        end_date = today + timedelta(days=30)
+
     subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
     categories = db.query(Category).all()
     cat_map = {c.id: c for c in categories}
 
     entries = []
     for sub in subscriptions:
-        # Skip expired subscriptions
-        if sub.expiry_date and sub.expiry_date < today:
+        if sub.expiry_date and sub.expiry_date < start_date:
             continue
 
         cat_color = cat_map[sub.category_id].color if sub.category_id and sub.category_id in cat_map else None
 
-        # Handle "once"/"permanent" type: show on first_payment_date instead of next_payment_date
         if sub.billing_cycle in ("once", "permanent"):
             pd = sub.first_payment_date
-            if pd < today or pd > end_date:
+            if pd < start_date or pd > end_date:
                 continue
-            effective = _effective_amount(sub, pd, today.replace(day=1))
+            effective = _effective_amount(sub, pd, start_date.replace(day=1))
             converted = await exchange_rate_service.convert(db, effective, sub.currency, preferred)
             entries.append(CalendarEntry(
                 date=pd,
@@ -137,9 +145,9 @@ async def get_calendar(db: Session = Depends(get_db)):
             ))
             continue
 
-        if sub.next_payment_date is None or sub.next_payment_date < today or sub.next_payment_date > end_date:
+        if sub.next_payment_date is None or sub.next_payment_date < start_date or sub.next_payment_date > end_date:
             continue
-        effective = _effective_amount(sub, sub.next_payment_date, today.replace(day=1))
+        effective = _effective_amount(sub, sub.next_payment_date, start_date.replace(day=1))
         converted = await exchange_rate_service.convert(db, effective, sub.currency, preferred)
         entries.append(CalendarEntry(
             date=sub.next_payment_date,
