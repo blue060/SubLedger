@@ -8,6 +8,8 @@ class DashboardSummary(BaseModel):
     monthly_total_currency: str
     next_month_projected: float
     next_month_projected_currency: str
+    yearly_total: float = 0
+    yearly_total_currency: str = "CNY"
 
 
 class CategoryStat(BaseModel):

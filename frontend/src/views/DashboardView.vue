@@ -3,31 +3,39 @@
     <h2>{{ zhCN.dashboard.title }}</h2>
 
     <!-- Summary cards -->
-    <el-row :gutter="20" class="summary-row">
-      <el-col :span="6" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-blue">
+    <el-row :gutter="16" class="summary-row">
+      <el-col :span="8" :xs="12">
+        <el-card shadow="hover" class="stat-card stat-gradient-blue" :body-style="{ padding: '20px' }">
           <div class="stat-label">{{ zhCN.dashboard.monthlySpend }}</div>
           <div class="stat-value">{{ summary.monthly_total_currency }} {{ (summary.monthly_total ?? 0).toFixed(2) }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-green">
+      <el-col :span="8" :xs="12">
+        <el-card shadow="hover" class="stat-card stat-gradient-green" :body-style="{ padding: '20px' }">
           <div class="stat-label">{{ zhCN.dashboard.nextMonthProjected }}</div>
           <div class="stat-value">{{ summary.next_month_projected_currency }} {{ (summary.next_month_projected ?? 0).toFixed(2) }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-purple">
+      <el-col :span="8" :xs="12">
+        <el-card shadow="hover" class="stat-card stat-gradient-purple" :body-style="{ padding: '20px' }">
+          <div class="stat-label">{{ zhCN.dashboard.yearlySpend }}</div>
+          <div class="stat-value">{{ summary.yearly_total_currency }} {{ (summary.yearly_total ?? 0).toFixed(2) }}</div>
+        </el-card>
+      </el-col>
+    </el-row>
+    <el-row :gutter="16" class="summary-row">
+      <el-col :span="8" :xs="12">
+        <el-card shadow="hover" class="stat-card stat-gradient-cyan" :body-style="{ padding: '20px' }">
           <div class="stat-label">{{ zhCN.dashboard.allSubscriptions }}</div>
           <div class="stat-value">{{ activeCount }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6" :xs="12">
-        <el-card shadow="hover" class="stat-card" :class="budget.exceeded ? 'stat-red' : 'stat-orange'">
+      <el-col :span="16" :xs="12">
+        <el-card shadow="hover" class="stat-card" :class="budget.exceeded ? 'stat-gradient-red' : 'stat-gradient-orange'" :body-style="{ padding: '20px' }">
           <div class="stat-label">{{ zhCN.dashboard.budget }}</div>
           <div v-if="budget.budget" class="budget-info">
             <div class="stat-value" :class="{ 'text-danger': budget.exceeded }">{{ budget.spent.toFixed(2) }} / {{ budget.budget.toFixed(2) }}</div>
-            <el-progress :percentage="Math.min(budget.spent / budget.budget * 100, 100)" :color="budget.exceeded ? '#ef4444' : '#4f46e5'" :stroke-width="6" style="margin-top: 6px" :show-text="false" />
+            <el-progress :percentage="Math.min(budget.spent / budget.budget * 100, 100)" :color="budget.exceeded ? '#fca5a5' : '#fff'" :stroke-width="6" style="margin-top: 6px" :show-text="false" />
             <div v-if="budget.exceeded" class="budget-warn">{{ zhCN.dashboard.budgetExceeded }}</div>
             <div v-else class="budget-remain">{{ zhCN.dashboard.budgetRemaining }}: {{ budget.remaining?.toFixed(2) }}</div>
           </div>
@@ -120,6 +128,9 @@
             </el-tag>
             <span class="sub-card-expiry-date">{{ zhCN.dashboard.expires }}: {{ sub.expiry_date }}</span>
           </div>
+          <div v-else-if="sub.next_payment_date && sub.billing_cycle !== 'once'" class="sub-card-expiry">
+            <el-tag type="" size="small">{{ zhCN.dashboard.daysUntilBill.replace('{days}', String(daysUntil(sub.next_payment_date))) }}</el-tag>
+          </div>
           <div v-if="sub.payment_method" class="sub-card-method">
             {{ sub.payment_method }}
           </div>
@@ -149,6 +160,15 @@ let chartInstance: echarts.ECharts | null = null
 let trendChart: echarts.ECharts | null = null
 
 const activeCount = computed(() => zhCN.dashboard.activeCount.replace('{count}', String(subscriptions.value.length)))
+
+function daysUntil(dateStr: string) {
+  const d = new Date(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+const isDark = ref(document.documentElement.classList.contains('dark'))
 
 const resizeHandler = () => { chartInstance?.resize(); trendChart?.resize() }
 
@@ -185,20 +205,21 @@ function renderChart() {
   if (!chartRef.value) return
   chartInstance = echarts.init(chartRef.value)
   const palette = ['#4f46e5','#7c3aed','#06b6d4','#059669','#d97706','#dc2626','#ec4899','#6366f1','#0ea5e9','#10b981']
+  const textColor = isDark.value ? '#e2e8f0' : '#334155'
   chartInstance.setOption({
     tooltip: { trigger: 'item', confine: true },
-    legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 12 } },
+    legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 12, color: textColor } },
     series: [{
       type: 'pie',
       radius: ['45%', '72%'],
       center: ['50%', '45%'],
-      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      itemStyle: { borderRadius: 6, borderColor: isDark.value ? '#1e293b' : '#fff', borderWidth: 2 },
       data: stats.value.map((s: any, i: number) => ({
         name: s.category_name,
         value: s.total_amount,
-        itemStyle: { color: palette[i % palette.length] },
+        itemStyle: { color: s.color || palette[i % palette.length] },
       })),
-      label: { fontSize: 12 },
+      label: { fontSize: 12, color: textColor },
     }],
   })
   window.addEventListener('resize', resizeHandler)
@@ -207,18 +228,20 @@ function renderChart() {
 function renderTrend() {
   if (!trendRef.value || !trend.value.length) return
   trendChart = echarts.init(trendRef.value)
+  const textColor = isDark.value ? '#94a3b8' : '#64748b'
+  const splitColor = isDark.value ? '#1e293b' : '#f1f5f9'
   trendChart.setOption({
     tooltip: { trigger: 'axis', confine: true },
     xAxis: {
       type: 'category',
       data: trend.value.map((t: any) => t.month.slice(5)),
-      axisLabel: { fontSize: 12, color: '#94a3b8' },
-      axisLine: { lineStyle: { color: '#e2e8f0' } },
+      axisLabel: { fontSize: 12, color: textColor },
+      axisLine: { lineStyle: { color: isDark.value ? '#334155' : '#e2e8f0' } },
     },
     yAxis: {
       type: 'value',
-      axisLabel: { fontSize: 12, color: '#94a3b8' },
-      splitLine: { lineStyle: { color: '#f1f5f9' } },
+      axisLabel: { fontSize: 12, color: textColor },
+      splitLine: { lineStyle: { color: splitColor } },
     },
     series: [{
       type: 'bar',
@@ -258,46 +281,58 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 </script>
 
 <style scoped>
-/* Stat cards */
+/* Summary cards - gradient backgrounds */
 .stat-card {
   position: relative;
   overflow: hidden;
-  padding-top: 4px;
+  color: #fff;
+  border: none !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0,0,0,.15) !important;
 }
-.stat-blue::before { background: linear-gradient(90deg, #4f46e5, #818cf8); }
-.stat-green::before { background: linear-gradient(90deg, #059669, #34d399); }
-.stat-purple::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
-.stat-orange::before { background: linear-gradient(90deg, #d97706, #fbbf24); }
-.stat-red::before { background: linear-gradient(90deg, #dc2626, #f87171); }
+.stat-gradient-blue {
+  background: linear-gradient(135deg, #4f46e5, #818cf8) !important;
+}
+.stat-gradient-green {
+  background: linear-gradient(135deg, #059669, #34d399) !important;
+}
+.stat-gradient-purple {
+  background: linear-gradient(135deg, #7c3aed, #a78bfa) !important;
+}
+.stat-gradient-cyan {
+  background: linear-gradient(135deg, #0891b2, #67e8f9) !important;
+}
+.stat-gradient-orange {
+  background: linear-gradient(135deg, #d97706, #fbbf24) !important;
+}
+.stat-gradient-red {
+  background: linear-gradient(135deg, #dc2626, #f87171) !important;
+}
+
 .stat-label {
   font-size: 13px;
-  color: #64748b;
+  color: rgba(255,255,255,.75);
   font-weight: 500;
   margin-bottom: 8px;
 }
 .stat-value {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
-  color: #1e293b;
+  color: #fff;
   line-height: 1.2;
 }
 .stat-value.muted {
   font-size: 14px;
-  color: #94a3b8;
+  color: rgba(255,255,255,.6);
   font-weight: 500;
 }
-.text-danger { color: #ef4444 !important; }
-.summary-row .el-col { margin-bottom: 20px; }
-.budget-warn { color: #ef4444; font-size: 12px; margin-top: 4px; font-weight: 500; }
-.budget-remain { color: #94a3b8; font-size: 12px; margin-top: 4px; }
+.text-danger { color: #fca5a5 !important; }
+.summary-row .el-col { margin-bottom: 16px; }
+.budget-warn { color: #fca5a5; font-size: 12px; margin-top: 4px; font-weight: 500; }
+.budget-remain { color: rgba(255,255,255,.7); font-size: 12px; margin-top: 4px; }
 
 /* Expiring */
 .expiring-card { border: none; background: #fef2f2; }
@@ -312,8 +347,9 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 
 /* Subscription cards */
 .sub-cards .el-col { margin-bottom: 16px; }
-.sub-card { height: 100%; border-radius: 12px; }
-.sub-card.sub-expiring { background: #fef2f2; }
+.sub-card { height: 100%; border-radius: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.sub-card:hover { transform: translateY(-2px); }
+.sub-card.sub-expiring { border-left: 3px solid #ef4444; }
 .sub-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .sub-card-name { font-weight: 700; font-size: 15px; color: #1e293b; }
 .sub-card-amount { font-size: 20px; font-weight: 700; color: #4f46e5; margin-bottom: 8px; }
@@ -322,4 +358,13 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .sub-card-expiry { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .sub-card-expiry-date { color: #94a3b8; font-size: 12px; }
 .sub-card-method { color: #94a3b8; font-size: 12px; margin-top: 6px; }
+
+/* Dark mode */
+html.dark .expiring-card { background: #1e1030; }
+html.dark .expiring-item { background: #1e293b; }
+html.dark .expiring-name { color: #e2e8f0; }
+html.dark .sub-card-name { color: #e2e8f0; }
+html.dark .sub-card-amount { color: #818cf8; }
+html.dark .sub-card-info { color: #94a3b8; }
+html.dark .sub-card.sub-expiring { border-left-color: #f87171; background: #1e1030; }
 </style>

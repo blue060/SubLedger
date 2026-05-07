@@ -20,7 +20,7 @@ body {
   border-radius: var(--radius) !important;
   border: none !important;
   box-shadow: var(--card-shadow) !important;
-  transition: box-shadow .2s ease;
+  transition: box-shadow .2s ease, transform .2s ease;
 }
 .el-card:hover {
   box-shadow: var(--card-shadow-hover) !important;
@@ -107,6 +107,8 @@ h3 { font-size: 17px; font-weight: 600; color: #334155; }
 /* Dark mode */
 html.dark {
   --bg: #0f172a;
+  --card-shadow: 0 1px 3px rgba(0,0,0,.2), 0 1px 2px rgba(0,0,0,.15);
+  --card-shadow-hover: 0 10px 25px rgba(0,0,0,.3);
 }
 html.dark body { background: var(--bg); }
 html.dark h2, html.dark h3 { color: #e2e8f0; }
@@ -115,3 +117,4 @@ html.dark .el-table th.el-table__cell { background: #1e293b !important; color: #
 html.dark .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background: #1e293b !important; }
 html.dark .el-table td.el-table__cell { color: #cbd5e1; background: #0f172a; }
 html.dark .el-table tr:hover > td.el-table__cell { background: #1e293b !important; }
+html.dark .el-card { background: #1e293b !important; }

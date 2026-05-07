@@ -1,3 +1,4 @@
+from dateutil.relativedelta import relativedelta
 from datetime import date, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
@@ -26,6 +27,7 @@ async def get_summary(db: Session = Depends(get_db)):
 
     monthly_total = 0.0
     next_month_total = 0.0
+    yearly_total = 0.0
 
     for sub in subscriptions:
         proj_current = calculate_monthly_projection(sub, current_month)
@@ -38,11 +40,21 @@ async def get_summary(db: Session = Depends(get_db)):
             converted = await exchange_rate_service.convert(db, proj_next, sub.currency, preferred)
             next_month_total += converted
 
+        # Calculate yearly total by summing 12 monthly projections
+        for i in range(12):
+            m = current_month + relativedelta(months=i)
+            proj = calculate_monthly_projection(sub, m)
+            if proj is not None:
+                converted = await exchange_rate_service.convert(db, proj, sub.currency, preferred)
+                yearly_total += converted
+
     return DashboardSummary(
         monthly_total=round(monthly_total, 2),
         monthly_total_currency=preferred,
         next_month_projected=round(next_month_total, 2),
         next_month_projected_currency=preferred,
+        yearly_total=round(yearly_total, 2),
+        yearly_total_currency=preferred,
     )
 
 
