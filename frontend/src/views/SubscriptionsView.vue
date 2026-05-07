@@ -179,27 +179,8 @@
         <el-button type="primary" @click="handleBatchExpiry">{{ zhCN.common.save }}</el-button>
       </template>
     </el-dialog>
-
-    <!-- Batch set category dialog -->
-    <el-dialog v-model="showBatchCategory" :title="zhCN.subscription.batchSetCategory" width="400px">
-      <el-select v-model="batchCategoryId" :placeholder="zhCN.subscription.batchCategoryPlaceholder" clearable style="width: 100%">
-        <el-option v-for="cat in categoryStore.categories" :key="cat.id" :label="cat.name" :value="cat.id" />
-      </el-select>
-      <template #footer>
-        <el-button @click="showBatchCategory = false">{{ zhCN.common.cancel }}</el-button>
-        <el-button type="primary" @click="handleBatchCategory">{{ zhCN.common.save }}</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- Batch set expiry date dialog -->
-    <el-dialog v-model="showBatchExpiry" :title="zhCN.subscription.batchSetExpiry" width="400px">
-      <el-date-picker v-model="batchExpiryDate" type="date" :placeholder="zhCN.subscription.batchExpiryPlaceholder" value-format="YYYY-MM-DD" style="width: 100%" />
-      <template #footer>
-        <el-button @click="showBatchExpiry = false">{{ zhCN.common.cancel }}</el-button>
-        <el-button type="primary" @click="handleBatchExpiry">{{ zhCN.common.save }}</el-button>
-      </template>
-    </el-dialog>
   </div>
+</template>
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed, nextTick, onBeforeUnmount } from 'vue'
@@ -337,34 +318,6 @@ async function handleBatchToggle(is_active: boolean) {
     await batchToggle(selectedIds.value, is_active)
     ElMessage.success(zhCN.common.success)
     selectedIds.value = []
-    await fetchList()
-  } catch {}
-}
-
-async function handleBatchCategory() {
-  if (batchCategoryId.value == null) return
-  try {
-    for (const id of selectedIds.value) {
-      await patchSubscription(id, { category_id: batchCategoryId.value })
-    }
-    ElMessage.success(zhCN.subscription.batchSuccess.replace('{count}', String(selectedIds.value.length)))
-    showBatchCategory.value = false
-    selectedIds.value = []
-    batchCategoryId.value = null
-    await fetchList()
-  } catch {}
-}
-
-async function handleBatchExpiry() {
-  if (!batchExpiryDate.value) return
-  try {
-    for (const id of selectedIds.value) {
-      await patchSubscription(id, { expiry_date: batchExpiryDate.value })
-    }
-    ElMessage.success(zhCN.subscription.batchSuccess.replace('{count}', String(selectedIds.value.length)))
-    showBatchExpiry.value = false
-    selectedIds.value = []
-    batchExpiryDate.value = ''
     await fetchList()
   } catch {}
 }
