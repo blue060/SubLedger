@@ -2,53 +2,47 @@
   <div>
     <h2>{{ zhCN.dashboard.title }}</h2>
 
-    <!-- Summary cards - single compact row -->
-    <el-row :gutter="12" class="summary-row" type="flex" align="stretch">
-      <el-col :span="4" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-gradient-blue" :body-style="{ padding: '14px' }">
-          <div class="stat-label">{{ zhCN.dashboard.monthlySpend }}</div>
-          <div class="stat-value">{{ summary.monthly_total_currency }} {{ (summary.monthly_total ?? 0).toFixed(2) }}</div>
-          <div v-if="summary.monthly_change != null" class="stat-change" :class="summary.monthly_change >= 0 ? 'change-up' : 'change-down'">
-            {{ summary.monthly_change >= 0 ? '↑' : '↓' }} {{ Math.abs(summary.monthly_change).toFixed(2) }}
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="4" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-gradient-green" :body-style="{ padding: '14px' }">
-          <div class="stat-label">{{ zhCN.dashboard.nextMonthProjected }}</div>
-          <div class="stat-value">{{ summary.next_month_projected_currency }} {{ (summary.next_month_projected ?? 0).toFixed(2) }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="4" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-gradient-purple" :body-style="{ padding: '14px' }">
-          <div class="stat-label">{{ zhCN.dashboard.yearlySpend }}</div>
-          <div class="stat-value">{{ summary.yearly_total_currency }} {{ (summary.yearly_total ?? 0).toFixed(2) }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="4" :xs="12">
-        <el-card shadow="hover" class="stat-card stat-gradient-cyan" :body-style="{ padding: '14px' }">
-          <div class="stat-label">{{ zhCN.dashboard.allSubscriptions }}</div>
-          <div class="stat-value">{{ activeCount }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6" :xs="24">
-        <el-card shadow="hover" class="stat-card" :class="budget.exceeded ? 'stat-gradient-red' : 'stat-gradient-orange'" :body-style="{ padding: '14px' }">
-          <div class="stat-label">{{ zhCN.dashboard.budget }}</div>
-          <div v-if="budget.budget" class="budget-info">
-            <div class="stat-value" :class="{ 'text-danger': budget.exceeded }">{{ budget.spent.toFixed(2) }} / {{ budget.budget.toFixed(2) }}</div>
-            <el-progress :percentage="Math.min(budget.spent / budget.budget * 100, 100)" :color="budget.exceeded ? '#fca5a5' : '#fff'" :stroke-width="6" style="margin-top: 6px" :show-text="false" />
-            <div v-if="budget.exceeded" class="budget-warn">{{ zhCN.dashboard.budgetExceeded }}</div>
-            <div v-else class="budget-remain">{{ zhCN.dashboard.budgetRemaining }}: {{ budget.remaining?.toFixed(2) }}</div>
-          </div>
-          <div v-else class="stat-value muted">{{ zhCN.dashboard.budgetNotSet }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <!-- Summary cards - equal width flex row -->
+    <div class="stat-row">
+      <el-card shadow="hover" class="stat-card stat-gradient-blue" :body-style="{ padding: '14px' }">
+        <div class="stat-label">{{ zhCN.dashboard.monthlySpend }}</div>
+        <div class="stat-value">{{ summary.monthly_total_currency }} {{ (summary.monthly_total ?? 0).toFixed(2) }}</div>
+        <div class="stat-change" :class="summary.monthly_change >= 0 ? 'change-up' : 'change-down'">
+          <template v-if="summary.monthly_change != null">{{ summary.monthly_change >= 0 ? '↑' : '↓' }} {{ Math.abs(summary.monthly_change).toFixed(2) }}</template>
+          <span v-else>&nbsp;</span>
+        </div>
+      </el-card>
+      <el-card shadow="hover" class="stat-card stat-gradient-green" :body-style="{ padding: '14px' }">
+        <div class="stat-label">{{ zhCN.dashboard.nextMonthProjected }}</div>
+        <div class="stat-value">{{ summary.next_month_projected_currency }} {{ (summary.next_month_projected ?? 0).toFixed(2) }}</div>
+        <div class="stat-change"><span>&nbsp;</span></div>
+      </el-card>
+      <el-card shadow="hover" class="stat-card stat-gradient-purple" :body-style="{ padding: '14px' }">
+        <div class="stat-label">{{ zhCN.dashboard.yearlySpend }}</div>
+        <div class="stat-value">{{ summary.yearly_total_currency }} {{ (summary.yearly_total ?? 0).toFixed(2) }}</div>
+        <div class="stat-change"><span>&nbsp;</span></div>
+      </el-card>
+      <el-card shadow="hover" class="stat-card stat-gradient-cyan" :body-style="{ padding: '14px' }">
+        <div class="stat-label">{{ zhCN.dashboard.allSubscriptions }}</div>
+        <div class="stat-value">{{ activeCount }}</div>
+        <div class="stat-change"><span>&nbsp;</span></div>
+      </el-card>
+      <el-card shadow="hover" class="stat-card" :class="budget.exceeded ? 'stat-gradient-red' : 'stat-gradient-orange'" :body-style="{ padding: '14px' }">
+        <div class="stat-label">{{ zhCN.dashboard.budget }}</div>
+        <div v-if="budget.budget" class="budget-info">
+          <div class="stat-value" :class="{ 'text-danger': budget.exceeded }">{{ budget.spent.toFixed(2) }} / {{ budget.budget.toFixed(2) }}</div>
+          <el-progress :percentage="Math.min(budget.spent / budget.budget * 100, 100)" :color="budget.exceeded ? '#fca5a5' : '#fff'" :stroke-width="6" style="margin-top: 6px" :show-text="false" />
+          <div v-if="budget.exceeded" class="budget-warn">{{ zhCN.dashboard.budgetExceeded }}</div>
+          <div v-else class="budget-remain">{{ zhCN.dashboard.budgetRemaining }}: {{ budget.remaining?.toFixed(2) }}</div>
+        </div>
+        <div v-else class="stat-value muted">{{ zhCN.dashboard.budgetNotSet }}</div>
+      </el-card>
+    </div>
 
     <!-- Expiring soon alert -->
-    <div v-if="expiring.length" class="expiring-strip">
-      <span class="expiring-strip-label">{{ zhCN.dashboard.expiringSoon }}</span>
-      <div class="expiring-strip-list">
+    <div v-if="expiring.length" class="expiring-card">
+      <div class="expiring-card-header">{{ zhCN.dashboard.expiringSoon }}</div>
+      <div class="expiring-list">
         <div v-for="item in expiring" :key="item.id" class="expiring-item">
           <span class="expiring-name">{{ item.name }}</span>
           <el-tag :type="item.remaining_days <= 0 ? 'danger' : item.remaining_days <= 7 ? 'danger' : 'warning'" size="small">
@@ -108,7 +102,7 @@
               <img v-if="sub.url" :src="getFavicon(sub.url)" class="sub-card-favicon" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
             </span>
             <span class="sub-card-name">{{ sub.name }}</span>
-            <el-tag v-if="sub.category_name" :color="sub.category_color" size="small" style="color: #fff; border: none">
+            <el-tag v-if="sub.category_name" :color="sub.category_color" size="small" class="sub-card-tag">
               {{ sub.category_name }}
             </el-tag>
           </div>
@@ -291,15 +285,20 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 </script>
 
 <style scoped>
-/* Summary cards - gradient backgrounds */
+/* Summary cards - equal width flex row */
+.stat-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
 .stat-card {
+  flex: 1;
+  min-width: 0;
   position: relative;
   overflow: hidden;
   color: #fff;
   border: none !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  display: flex;
-  flex-direction: column;
 }
 .stat-card:hover {
   transform: translateY(-2px);
@@ -342,29 +341,25 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
   font-weight: 500;
 }
 .text-danger { color: #fca5a5 !important; }
-.summary-row .el-col { margin-bottom: 16px; }
 .budget-warn { color: #fca5a5; font-size: 12px; margin-top: 4px; font-weight: 500; }
 .budget-remain { color: rgba(255,255,255,.7); font-size: 12px; margin-top: 4px; }
-.stat-change { font-size: 13px; font-weight: 600; margin-top: 4px; }
+.stat-change { font-size: 13px; font-weight: 600; margin-top: 4px; min-height: 20px; }
 .change-up { color: #fca5a5; }
 .change-down { color: #bbf7d0; }
 
 /* Expiring */
-.expiring-strip {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-  padding: 10px 16px;
+.expiring-card {
+  margin-top: 16px;
+  padding: 14px 20px;
   background: #fef2f2;
-  border-radius: 8px;
+  border-radius: 10px;
 }
-.expiring-strip-label { color: #f56c6c; font-weight: 600; font-size: 14px; flex-shrink: 0; }
-.expiring-strip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.expiring-card-header { color: #f56c6c; font-weight: 600; font-size: 14px; margin-bottom: 10px; }
+.expiring-list { display: flex; flex-wrap: wrap; gap: 10px; }
 .expiring-item {
-  display: flex; align-items: center; gap: 6px;
-  padding: 4px 12px; background: #fff; border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(0,0,0,.06); font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; background: #fff; border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06); font-size: 13px;
 }
 .expiring-name { font-weight: 600; color: #1e293b; }
 .expiring-date { color: #94a3b8; font-size: 12px; }
@@ -374,10 +369,11 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .sub-card { height: 100%; border-radius: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
 .sub-card:hover { transform: translateY(-2px); }
 .sub-card.sub-expiring { border-left: 3px solid #ef4444; }
-.sub-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
+.sub-card-header { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; }
 .sub-card-icon-slot { width: 22px; height: 22px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
 .sub-card-favicon { width: 22px; height: 22px; border-radius: 4px; }
 .sub-card-name { font-weight: 700; font-size: 15px; color: #1e293b; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub-card-tag { margin-left: auto; color: #fff !important; border: none; flex-shrink: 0; }
 .sub-card-amount { font-size: 20px; font-weight: 700; color: #4f46e5; margin-bottom: 8px; }
 .sub-card-cycle { font-size: 12px; color: #94a3b8; font-weight: 400; }
 .sub-card-info { color: #64748b; font-size: 13px; margin-bottom: 6px; }
@@ -393,7 +389,7 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 .view-all-link:hover { color: #7c3aed; }
 
 /* Dark mode */
-html.dark .expiring-strip { background: #1e1030; }
+html.dark .expiring-card { background: #1e1030; }
 html.dark .expiring-item { background: #1e293b; }
 html.dark .expiring-name { color: #e2e8f0; }
 html.dark .sub-card-name { color: #e2e8f0; }
