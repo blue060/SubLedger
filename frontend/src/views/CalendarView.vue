@@ -30,9 +30,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { getDashboardCalendar, getDashboardSummary } from '../api/dashboard'
-import { getSettings } from '../api/settings'
 import { zhCN } from '../locales/zh-CN'
 
 const currentDate = ref(new Date())
