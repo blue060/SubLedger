@@ -145,6 +145,8 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
 
     is_json = file.filename and file.filename.endswith(".json")
 
+    existing_names = {s.name for s in db.query(Subscription.name).all()}
+
     if is_json:
         data = json.loads(text)
         for i, row in enumerate(data, start=1):
@@ -154,7 +156,12 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
                     errors.append(err)
                     skipped += 1
                     continue
+                if sub.name in existing_names:
+                    errors.append(f"第 {i} 条：'{sub.name}' 已存在，已跳过")
+                    skipped += 1
+                    continue
                 db.add(sub)
+                existing_names.add(sub.name)
                 imported += 1
             except Exception as e:
                 errors.append(f"第 {i} 条：{str(e)}")
@@ -168,7 +175,12 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
                     errors.append(err)
                     skipped += 1
                     continue
+                if sub.name in existing_names:
+                    errors.append(f"第 {row_num} 行：'{sub.name}' 已存在，已跳过")
+                    skipped += 1
+                    continue
                 db.add(sub)
+                existing_names.add(sub.name)
                 imported += 1
             except Exception as e:
                 errors.append(f"第 {row_num} 行：{str(e)}")

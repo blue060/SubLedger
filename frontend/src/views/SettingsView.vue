@@ -223,8 +223,8 @@ async function handleImport(file: File) {
         .replace('{imported}', res.data.imported)
         .replace('{skipped}', res.data.skipped)
     )
-  } catch {
-    ElMessage.error(zhCN.common.error)
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || zhCN.common.error)
   }
   return false
 }

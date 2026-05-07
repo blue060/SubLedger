@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-loading="loading">
     <h2>{{ zhCN.dashboard.title }}</h2>
 
     <!-- Summary cards - 4 equal + budget fixed width -->
@@ -137,7 +137,9 @@ import * as echarts from 'echarts'
 import { getDashboardSummary, getDashboardStats, getDashboardCalendar, getDashboardExpiring, getDashboardTrend, getDashboardBudget } from '../api/dashboard'
 import { listSubscriptions } from '../api/subscriptions'
 import { zhCN } from '../locales/zh-CN'
+import { formatCurrency, getFavicon } from '../utils/format'
 
+const loading = ref(true)
 const summary = ref<Record<string, any>>({})
 const stats = ref<any[]>([])
 const calendar = ref<any[]>([])
@@ -184,6 +186,7 @@ onMounted(async () => {
   await nextTick()
   renderChart()
   renderTrend()
+  loading.value = false
 })
 
 onBeforeUnmount(() => {
@@ -250,20 +253,6 @@ function renderTrend() {
   })
 }
 
-function formatCurrency(amount: number, currency: string) {
-  const symbols: Record<string, string> = { CNY: '¥', USD: '$', EUR: '€', GBP: '£', JPY: '¥', HKD: '$' }
-  return `${symbols[currency] || ''}${amount.toFixed(2)}`
-}
-
-function getFavicon(url: string) {
-  try {
-    const domain = new URL(url).hostname
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
-  } catch {
-    return ''
-  }
-}
-
 function cycleLabel(cycle: string, num?: number, unit?: string) {
   if (cycle === 'permanent') return zhCN.subscription.permanent
   if (cycle === 'once') return zhCN.subscription.once
@@ -284,13 +273,14 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 /* Summary cards - 4 equal + budget fixed */
 .stat-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 12px;
   align-items: stretch;
 }
 .stat-card {
   flex: 1;
-  min-width: 0;
+  min-width: 160px;
   position: relative;
   overflow: hidden;
   color: #fff;

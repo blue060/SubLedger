@@ -55,7 +55,8 @@ class Subscription(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 
     category: Mapped[Optional["Category"]] = relationship("Category", back_populates="subscriptions", lazy="joined")
-    notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="subscription")
+    notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="subscription", cascade="all, delete-orphan")
+    price_history: Mapped[list["PriceHistory"]] = relationship("PriceHistory", cascade="all, delete-orphan")
 
 
 class Notification(Base):

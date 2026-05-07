@@ -76,7 +76,10 @@ class Notifier:
 
     async def send_bark(self, title: str, body: str, bark_url: str) -> None:
         async with httpx.AsyncClient(timeout=10) as client:
-            await client.get(f"{bark_url.rstrip('/')}/{title}/{body}")
+            await client.post(
+                f"{bark_url.rstrip('/')}",
+                json={"title": title, "body": body},
+            )
 
     async def send_serverchan(self, title: str, body: str, key: str) -> None:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -129,6 +132,45 @@ async def check_upcoming_subscriptions(db: Session) -> None:
             subscription_id=sub.id,
             message=message,
             notify_date=sub.next_payment_date,
+        )
+        db.add(notification)
+        db.flush()
+
+        await notifier.send(notification, settings, db)
+
+    # Check expiring subscriptions
+    expiring_subs = (
+        db.query(Subscription)
+        .filter(
+            Subscription.is_active == True,
+            Subscription.notify == True,
+            Subscription.expiry_date != None,
+            Subscription.expiry_date >= today,
+            Subscription.expiry_date <= end_date,
+        )
+        .all()
+    )
+
+    for sub in expiring_subs:
+        existing = (
+            db.query(Notification)
+            .filter(
+                Notification.subscription_id == sub.id,
+                Notification.notify_date == sub.expiry_date,
+                Notification.message.like("%到期%"),
+            )
+            .first()
+        )
+        if existing:
+            continue
+
+        remaining = (sub.expiry_date - today).days
+        message = f"{sub.name} 将于 {sub.expiry_date} 到期（剩余 {remaining} 天）"
+
+        notification = Notification(
+            subscription_id=sub.id,
+            message=message,
+            notify_date=sub.expiry_date,
         )
         db.add(notification)
         db.flush()

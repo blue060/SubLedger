@@ -202,9 +202,6 @@ async def get_trend(months: int = Query(default=12, ge=1, le=24), db: Session = 
     today = date.today()
     result = []
     for i in range(months - 1, -1, -1):
-        target = (today.replace(day=1) - timedelta(days=1) * 30 * i)
-        target = (today.replace(day=1) - timedelta(days=i * 30)).replace(day=1)
-        # Correct month calculation
         m = today.month - i
         y = today.year
         while m <= 0:

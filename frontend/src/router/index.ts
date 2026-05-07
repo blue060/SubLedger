@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getMe } from '../api/auth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -26,6 +27,20 @@ const router = createRouter({
       ],
     },
   ],
+})
+
+const publicPaths = ['/login', '/setup']
+
+router.beforeEach(async (to, _from, next) => {
+  if (publicPaths.includes(to.path)) {
+    return next()
+  }
+  try {
+    await getMe()
+    next()
+  } catch {
+    next('/login')
+  }
 })
 
 export default router

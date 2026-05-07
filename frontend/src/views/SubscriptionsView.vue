@@ -9,7 +9,7 @@
 
     <!-- Filters -->
     <div class="filter-bar">
-      <el-input v-model="searchText" :placeholder="zhCN.common.search" clearable style="width: 200px" @input="fetchList" />
+      <el-input v-model="searchText" :placeholder="zhCN.common.search" clearable style="width: 200px" @input="debouncedFetchList" />
       <el-select v-model="filterCategory" :placeholder="zhCN.subscription.category" clearable style="width: 140px" @change="fetchList">
         <el-option :label="zhCN.subscription.filterAll" :value="null" />
         <el-option v-for="cat in categoryStore.categories" :key="cat.id" :label="cat.name" :value="cat.id" />
@@ -191,6 +191,7 @@ import { useCategoryStore } from '../stores/category'
 import { zhCN } from '../locales/zh-CN'
 import { patchSubscription, batchDelete, batchToggle, batchCategory, batchExpiry, getPriceHistory } from '../api/subscriptions'
 import type { Subscription } from '../types/subscription'
+import { formatCurrency, getFavicon, cycleLabel } from '../utils/format'
 
 const subscriptionStore = useSubscriptionStore()
 const categoryStore = useCategoryStore()
@@ -201,6 +202,11 @@ const priceHistory = ref<any[]>([])
 const priceChartRef = ref<HTMLElement>()
 let priceChartInstance: echarts.ECharts | null = null
 const searchText = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedFetchList() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(fetchList, 300)
+}
 const filterCategory = ref<number | null>(null)
 const filterCurrency = ref<string | null>(null)
 const selectedIds = ref<number[]>([])
@@ -346,30 +352,6 @@ async function handleBatchExpiry() {
   } catch {}
 }
 
-function formatCurrency(amount: number, currency: string) {
-  const symbols: Record<string, string> = { CNY: '¥', USD: '$', EUR: '€', GBP: '£', JPY: '¥', HKD: '$' }
-  return `${symbols[currency] || ''}${amount.toFixed(2)}`
-}
-
-function getFavicon(url: string) {
-  try {
-    const domain = new URL(url).hostname
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
-  } catch {
-    return ''
-  }
-}
-
-function cycleLabel(cycle: string, num?: number, unit?: string) {
-  if (cycle === 'permanent') return zhCN.subscription.permanent
-  if (cycle === 'once') return zhCN.subscription.once
-  if (cycle === 'custom' && num && unit) {
-    const unitLabel = unit === 'year' ? zhCN.subscription.unitYear : zhCN.subscription.unitMonth
-    return `每${num}${unitLabel}`
-  }
-  const labels: Record<string, string> = { monthly: zhCN.subscription.monthly, quarterly: zhCN.subscription.quarterly, yearly: zhCN.subscription.yearly }
-  return labels[cycle] || cycle
-}
 
 function renderPriceChart() {
   if (!priceChartRef.value || priceHistory.value.length <= 1) return

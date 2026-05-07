@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -17,11 +17,11 @@ class SettingsOut(BaseModel):
 
 class SettingsUpdate(BaseModel):
     preferred_currency: Optional[str] = None
-    reminder_days: Optional[int] = None
-    monthly_budget: Optional[float] = None
+    reminder_days: Optional[int] = Field(default=None, ge=1, le=365)
+    monthly_budget: Optional[float] = Field(default=None, ge=0)
     theme: Optional[str] = None
     smtp_host: Optional[str] = None
-    smtp_port: Optional[int] = None
+    smtp_port: Optional[int] = Field(default=None, ge=1, le=65535)
     smtp_user: Optional[str] = None
     smtp_password: Optional[str] = None
     smtp_tls: Optional[bool] = None
@@ -31,7 +31,7 @@ class SettingsUpdate(BaseModel):
 
 class PasswordChange(BaseModel):
     old_password: str
-    new_password: str
+    new_password: str = Field(min_length=4)
 
 
 class ImportResult(BaseModel):

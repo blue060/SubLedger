@@ -1,14 +1,17 @@
 from typing import Optional
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from datetime import date
+
+VALID_CURRENCIES = {"CNY", "USD", "EUR", "GBP", "JPY", "HKD", "AUD", "CAD", "SGD", "KRW", "THB", "MYR", "IDR", "PHP", "VND", "TWD", "INR", "RUB", "BRL", "MXN", "ZAR", "NZD", "CHF", "SEK", "NOK", "DKK"}
+VALID_CYCLES = {"monthly", "quarterly", "yearly", "once", "permanent", "custom"}
 
 
 class SubscriptionCreate(BaseModel):
     name: str
-    amount: float
+    amount: float = Field(ge=0)
     currency: str = "CNY"
     billing_cycle: str  # monthly, quarterly, yearly, once, custom
-    billing_cycle_num: int = 1  # for custom: e.g. 2 for "every 2 years"
+    billing_cycle_num: int = Field(default=1, ge=1)  # for custom: e.g. 2 for "every 2 years"
     billing_cycle_unit: str = "month"  # month or year, for custom
     first_payment_date: date
     category_id: Optional[int] = None
@@ -22,6 +25,10 @@ class SubscriptionCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_billing_cycle_fields(self):
+        if self.currency not in VALID_CURRENCIES:
+            raise ValueError(f"不支持的货币: {self.currency}")
+        if self.billing_cycle not in VALID_CYCLES:
+            raise ValueError(f"无效的计费周期: {self.billing_cycle}")
         if self.billing_cycle == "custom":
             if not self.billing_cycle_num or not self.billing_cycle_unit:
                 raise ValueError("自定义周期需要填写周期数和周期单位")
