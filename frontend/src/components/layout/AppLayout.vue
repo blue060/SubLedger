@@ -134,10 +134,10 @@ async function handleLogout() {
 <style scoped>
 .app-layout { min-height: 100vh; }
 .app-aside {
-  background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
+  background: linear-gradient(180deg, #0f0d23 0%, #1a1145 50%, #1e1b4b 100%);
   transition: width .3s ease;
   overflow: hidden;
-  box-shadow: 2px 0 12px rgba(0,0,0,.15);
+  box-shadow: 2px 0 16px rgba(0,0,0,.3);
 }
 .logo {
   height: 64px;
@@ -146,19 +146,21 @@ async function handleLogout() {
   justify-content: center;
   gap: 10px;
   padding: 0 16px;
+  position: relative;
 }
 .logo-icon {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, #818cf8, #a78bfa);
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #818cf8, #6366f1);
   color: #fff;
   font-size: 18px;
   font-weight: 800;
-  border-radius: 10px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 0 16px rgba(99,102,241,.4);
 }
 .logo-text {
   font-size: 20px;
@@ -170,9 +172,10 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #f1f5f9;
-  box-shadow: 0 1px 3px rgba(0,0,0,.04);
-  background: #fff;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,.03);
+  background: var(--surface, #fff);
+  transition: background-color .3s, border-color .3s;
 }
 .header-right {
   display: flex;
@@ -180,21 +183,28 @@ async function handleLogout() {
   gap: 8px;
 }
 .username {
-  color: #475569;
+  color: var(--text-secondary, #64748b);
   font-size: 14px;
   font-weight: 500;
 }
 .el-menu {
   border-right: none;
 }
-.el-menu-item.is-active {
-  background: rgba(255,255,255,.12) !important;
-  border-radius: 8px;
-  margin: 2px 8px;
-}
 .el-menu-item {
   margin: 2px 8px;
-  border-radius: 8px;
+  border-radius: 10px;
+  border-left: 3px solid transparent;
+  transition: all .2s ease;
+}
+.el-menu-item:hover {
+  background: rgba(255,255,255,.06) !important;
+  border-left-color: rgba(129,140,248,.3);
+}
+.el-menu-item.is-active {
+  background: rgba(99,102,241,.15) !important;
+  border-radius: 10px;
+  margin: 2px 8px;
+  border-left: 3px solid #818cf8;
 }
 .notification-badge :deep(.el-badge__content) {
   top: -2px;
@@ -203,13 +213,14 @@ async function handleLogout() {
 .el-main {
   padding: 24px;
   background: var(--bg, #f8fafc);
+  transition: background-color .3s;
 }
 
 /* Dark */
 .dark .app-header {
-  border-bottom-color: #1e293b;
-  background: #1e293b;
+  border-bottom-color: rgba(255,255,255,.06);
+  background: var(--surface, #151c2c);
 }
 .dark .username { color: #cbd5e1; }
-.dark .el-main { background: #0f172a; color: #e2e8f0; }
+.dark .el-main { background: var(--bg, #0a0e1a); color: #e2e8f0; }
 </style>

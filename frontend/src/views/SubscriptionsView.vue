@@ -2,9 +2,10 @@
   <div>
     <div class="page-header">
       <h2>{{ zhCN.subscription.title }}</h2>
-      <el-button type="primary" @click="showForm()">
-        {{ zhCN.subscription.addNew }}
-      </el-button>
+      <div style="display:flex;gap:8px">
+        <el-button @click="showTemplateDialog = true">{{ zhCN.subscription.quickAdd }}</el-button>
+        <el-button type="primary" @click="showForm()">{{ zhCN.subscription.addNew }}</el-button>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -38,7 +39,7 @@
       <el-table-column prop="name" :label="zhCN.subscription.name" sortable>
         <template #default="{ row }">
           <div style="display: flex; align-items: center; gap: 8px">
-            <img v-if="row.url" :src="getFavicon(row.url)" class="sub-favicon" width="22" height="22" alt="" @error="($event.target as HTMLImageElement).style.display='none'" />
+            <ServiceIcon :name="row.name" :url="row.url" :category-color="row.category_color" :size="28" />
             <span>{{ row.name }}</span>
           </div>
         </template>
@@ -190,6 +191,20 @@
         <el-button type="primary" @click="handleBatchExpiry">{{ zhCN.common.save }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- Quick Add Template Dialog -->
+    <el-dialog v-model="showTemplateDialog" :title="zhCN.subscription.quickAdd" width="640px">
+      <div class="template-grid">
+        <div v-for="tpl in templates" :key="tpl.name" class="template-item" @click="selectTemplate(tpl)">
+          <ServiceIcon :name="tpl.name" :url="tpl.url" :size="32" />
+          <div class="template-item-info">
+            <div class="template-name">{{ tpl.name }}</div>
+            <div class="template-meta">{{ formatCurrency(tpl.amount, tpl.currency) }} / {{ cycleLabel(tpl.billing_cycle, 1, 'month', zhCN) }}</div>
+          </div>
+          <div class="template-category">{{ tpl.category_name }}</div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -203,7 +218,9 @@ import { zhCN } from '../locales/zh-CN'
 import { patchSubscription, batchDelete, batchToggle, batchCategory, batchExpiry, getPriceHistory } from '../api/subscriptions'
 import { listTags } from '../api/tags'
 import type { Subscription } from '../types/subscription'
-import { formatCurrency, getFavicon, cycleLabel } from '../utils/format'
+import { formatCurrency, cycleLabel } from '../utils/format'
+import ServiceIcon from '../components/ServiceIcon.vue'
+import { TEMPLATES } from '../data/templates'
 
 const subscriptionStore = useSubscriptionStore()
 const categoryStore = useCategoryStore()
@@ -226,6 +243,8 @@ const showBatchCategory = ref(false)
 const batchCategoryId = ref<number | null>(null)
 const showBatchExpiry = ref(false)
 const batchExpiryDate = ref('')
+const showTemplateDialog = ref(false)
+const templates = TEMPLATES
 const formRef = ref<FormInstance>()
 
 const formRules = reactive<FormRules>({
@@ -272,6 +291,21 @@ function onCycleChange() {
     form.billing_cycle_num = 1
     form.billing_cycle_unit = 'month'
   }
+}
+
+function selectTemplate(tpl: any) {
+  editingId.value = null
+  Object.assign(form, defaultForm)
+  form.name = tpl.name
+  form.amount = tpl.amount
+  form.currency = tpl.currency
+  form.billing_cycle = tpl.billing_cycle
+  form.url = tpl.url
+  const cat = categoryStore.categories.find((c: any) => c.name === tpl.category_name)
+  if (cat) form.category_id = cat.id
+  else form.category_id = null
+  showTemplateDialog.value = false
+  formVisible.value = true
 }
 
 async function showForm(sub?: Subscription) {
@@ -401,6 +435,16 @@ function renderPriceChart() {
 
 <style scoped>
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.template-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-height: 400px; overflow-y: auto; }
+.template-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e4e7ed; border-radius: 12px; cursor: pointer; transition: all .2s ease; }
+.template-item:hover { border-color: var(--primary, #6366f1); background: var(--primary-bg, #f5f3ff); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.15); }
+.template-item-info { flex: 1; min-width: 0; }
+.template-name { font-weight: 600; font-size: 14px; color: var(--text-primary, #303133); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.template-meta { font-size: 13px; color: var(--primary, #6366f1); margin-top: 2px; }
+.template-category { font-size: 12px; color: #909399; white-space: nowrap; }
+html.dark .template-item:hover { background: #1e293b; border-color: #818cf8; box-shadow: 0 4px 12px rgba(129,140,248,.15); }
+html.dark .template-name { color: #e2e8f0; }
+html.dark .template-meta { color: #818cf8; }
 .filter-bar {
   display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
   padding: 16px; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
@@ -413,6 +457,6 @@ function renderPriceChart() {
 .intro-group { display: flex; align-items: center; gap: 6px; }
 .intro-x { color: #94a3b8; font-size: 14px; }
 .intro-unit { color: #94a3b8; font-size: 13px; }
-.sub-favicon { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; }
+.sub-favicon { display: none; }
 html.dark .filter-bar { background: #1e293b; }
 </style>
