@@ -40,6 +40,7 @@ def export_data(format: str = "csv", db: Session = Depends(get_db)):
                 "intro_amount": sub.intro_amount,
                 "intro_months": sub.intro_months,
                 "notify": sub.notify,
+                "auto_renew": sub.auto_renew,
                 "is_active": sub.is_active,
             })
         content = json.dumps(data, ensure_ascii=False, indent=2)
@@ -52,7 +53,7 @@ def export_data(format: str = "csv", db: Session = Depends(get_db)):
     # CSV export
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["name", "amount", "currency", "billing_cycle", "billing_cycle_num", "billing_cycle_unit", "first_payment_date", "next_payment_date", "category_id", "notes", "url", "expiry_date", "payment_method", "intro_amount", "intro_months", "notify", "is_active"])
+    writer.writerow(["name", "amount", "currency", "billing_cycle", "billing_cycle_num", "billing_cycle_unit", "first_payment_date", "next_payment_date", "category_id", "notes", "url", "expiry_date", "payment_method", "intro_amount", "intro_months", "notify", "auto_renew", "is_active"])
     for sub in subscriptions:
         writer.writerow([
             sub.name, sub.amount, sub.currency, sub.billing_cycle,
@@ -63,7 +64,7 @@ def export_data(format: str = "csv", db: Session = Depends(get_db)):
             sub.payment_method or "",
             sub.intro_amount if sub.intro_amount is not None else "",
             sub.intro_months if sub.intro_months is not None else "",
-            sub.notify, sub.is_active,
+            sub.notify, sub.auto_renew, sub.is_active,
         ])
     output.seek(0)
     return StreamingResponse(
@@ -109,6 +110,8 @@ def _parse_row(row: dict, row_num: int) -> tuple[Optional[Subscription], Optiona
 
     notify_val = row.get("notify", True)
     notify = notify_val if isinstance(notify_val, bool) else str(notify_val).strip().lower() in ("true", "1")
+    renew_val = row.get("auto_renew", True)
+    auto_renew = renew_val if isinstance(renew_val, bool) else str(renew_val).strip().lower() in ("true", "1")
     active_val = row.get("is_active", True)
     is_active = active_val if isinstance(active_val, bool) else str(active_val).strip().lower() in ("true", "1")
 
@@ -129,6 +132,7 @@ def _parse_row(row: dict, row_num: int) -> tuple[Optional[Subscription], Optiona
         intro_amount=intro_amount,
         intro_months=intro_months,
         notify=notify,
+        auto_renew=auto_renew,
         is_active=is_active,
     )
     return sub, None

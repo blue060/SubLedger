@@ -54,7 +54,11 @@
         <template #default="{ row }">{{ cycleLabel(row.billing_cycle, row.billing_cycle_num, row.billing_cycle_unit) }}</template>
       </el-table-column>
       <el-table-column prop="next_payment_date" :label="zhCN.subscription.nextPayment" sortable>
-        <template #default="{ row }">{{ (row.billing_cycle === 'once' || row.billing_cycle === 'permanent') ? zhCN.dashboard.permanentPurchase : (row.next_payment_date || '--') }}</template>
+        <template #default="{ row }">
+          <template v-if="row.billing_cycle === 'once' || row.billing_cycle === 'permanent'">{{ zhCN.dashboard.permanentPurchase }}</template>
+          <template v-else-if="!row.auto_renew && row.expiry_date">{{ zhCN.subscription.expiresOn }}: {{ row.expiry_date }}</template>
+          <template v-else>{{ row.next_payment_date || '--' }}</template>
+        </template>
       </el-table-column>
       <el-table-column v-if="hasExpiring" prop="remaining_days" :label="zhCN.subscription.remainingDays" width="120" :sort-method="(a: any, b: any) => (a.remaining_days ?? Infinity) - (b.remaining_days ?? Infinity)" sortable>
         <template #default="{ row }">
@@ -141,6 +145,10 @@
         </el-form-item>
 
         <el-form-item :label="zhCN.subscription.notify"><el-switch v-model="form.notify" /></el-form-item>
+        <el-form-item :label="zhCN.subscription.autoRenew">
+          <el-switch v-model="form.auto_renew" />
+          <div class="cycle-tip">{{ zhCN.subscription.autoRenewHint }}</div>
+        </el-form-item>
         <el-form-item :label="zhCN.tag.title">
           <el-select v-model="form.tag_ids" multiple filterable allow-create default-first-option style="width: 100%" :placeholder="zhCN.tag.addTag">
             <el-option v-for="tag in tags" :key="tag.id" :label="tag.name" :value="tag.id" />
@@ -262,7 +270,7 @@ const defaultForm = {
   category_id: null as number | null, notes: null as string | null, url: null as string | null,
   expiry_date: null as string | null, payment_method: null as string | null,
   intro_amount: null as number | null, intro_months: null as number | null,
-  notify: true, tag_ids: [] as number[],
+  notify: true, auto_renew: true, tag_ids: [] as number[],
   shared_with: null as string | null, my_share: 100,
 }
 const form = reactive({ ...defaultForm })
@@ -315,7 +323,7 @@ async function showForm(sub?: Subscription) {
       name: sub.name, amount: sub.amount, currency: sub.currency, billing_cycle: sub.billing_cycle,
       billing_cycle_num: sub.billing_cycle_num || 1, billing_cycle_unit: sub.billing_cycle_unit || 'month',
       first_payment_date: sub.first_payment_date, category_id: sub.category_id, notes: sub.notes,
-      url: sub.url, expiry_date: sub.expiry_date, payment_method: sub.payment_method, notify: sub.notify,
+      url: sub.url, expiry_date: sub.expiry_date, payment_method: sub.payment_method, notify: sub.notify, auto_renew: sub.auto_renew,
       intro_amount: sub.intro_amount, intro_months: sub.intro_months,
       tag_ids: (sub.tags || []).map((t: any) => t.id),
       shared_with: sub.shared_with, my_share: sub.my_share || 100,

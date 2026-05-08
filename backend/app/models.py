@@ -56,6 +56,7 @@ class Subscription(Base):
     intro_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     intro_months: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     notify: Mapped[bool] = mapped_column(Boolean, default=True)
+    auto_renew: Mapped[bool] = mapped_column(Boolean, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     shared_with: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     my_share: Mapped[float] = mapped_column(Float, default=100.0)

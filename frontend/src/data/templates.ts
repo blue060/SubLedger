@@ -5,6 +5,7 @@ export interface SubscriptionTemplate {
   billing_cycle: string
   category_name: string
   url: string
+  auto_renew?: boolean
 }
 
 export const TEMPLATES: SubscriptionTemplate[] = [

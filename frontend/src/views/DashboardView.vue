@@ -104,6 +104,7 @@
           <div class="sub-card-amount">{{ formatCurrency(sub.amount, sub.currency) }}<span class="sub-card-cycle"> /{{ cycleLabel(sub.billing_cycle, sub.billing_cycle_num, sub.billing_cycle_unit) }}</span></div>
           <div class="sub-card-info">
             <span v-if="sub.billing_cycle === 'once' || sub.billing_cycle === 'permanent'">{{ zhCN.dashboard.permanentPurchase }}</span>
+            <span v-else-if="!sub.auto_renew && sub.expiry_date">{{ zhCN.subscription.expiresOn }}: {{ sub.expiry_date }}</span>
             <span v-else>{{ zhCN.dashboard.nextBill }}: {{ sub.next_payment_date || '--' }}</span>
           </div>
           <div v-if="sub.billing_cycle === 'permanent'" class="sub-card-expiry">

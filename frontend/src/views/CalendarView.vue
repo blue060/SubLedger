@@ -19,7 +19,7 @@
               </el-tag>
               <div v-if="hoveredPayment && hoveredPayment.subscription_name === p.subscription_name" class="calendar-tooltip">
                 <div class="calendar-tooltip-name">{{ p.subscription_name }}</div>
-                <div class="calendar-tooltip-amount">{{ p.currency }} {{ p.amount.toFixed(2) }} <span v-if="Math.abs(p.converted_amount - p.amount) > 0.005">(≈ {{ preferredCurrency }} {{ p.converted_amount.toFixed(2) }})</span></div>
+                <div class="calendar-tooltip-amount">{{ p.event_type === 'expiry' ? zhCN.subscription.expiresOn : zhCN.dashboard.nextBill }} {{ p.currency }} {{ p.amount.toFixed(2) }} <span v-if="Math.abs(p.converted_amount - p.amount) > 0.005">(≈ {{ preferredCurrency }} {{ p.converted_amount.toFixed(2) }})</span></div>
               </div>
             </div>
           </div>

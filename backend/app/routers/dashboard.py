@@ -154,6 +154,24 @@ async def get_calendar(
             ))
             continue
 
+        # Non-auto-renew with expiry_date: show expiry event
+        if not sub.auto_renew and sub.expiry_date:
+            if sub.expiry_date < start_date or sub.expiry_date > end_date:
+                continue
+            effective = _effective_amount(sub, sub.expiry_date, start_date.replace(day=1))
+            converted = await exchange_rate_service.convert(db, effective, sub.currency, preferred)
+            entries.append(CalendarEntry(
+                date=sub.expiry_date,
+                subscription_id=sub.id,
+                subscription_name=sub.name,
+                amount=effective,
+                currency=sub.currency,
+                converted_amount=round(converted, 2),
+                category_color=cat_color,
+                event_type="expiry",
+            ))
+            continue
+
         if sub.next_payment_date is None or sub.next_payment_date < start_date or sub.next_payment_date > end_date:
             continue
         effective = _effective_amount(sub, sub.next_payment_date, start_date.replace(day=1))

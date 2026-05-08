@@ -29,6 +29,7 @@ class CalendarEntry(BaseModel):
     currency: str
     converted_amount: float
     category_color: Optional[str] = None
+    event_type: str = "payment"
 
 
 class ExpiringSubscription(BaseModel):

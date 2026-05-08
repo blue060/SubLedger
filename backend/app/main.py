@@ -30,6 +30,7 @@ MIGRATIONS = [
     ("subscriptions", "my_share", "FLOAT DEFAULT 100.0 NOT NULL"),
     ("app_settings", "webhook_url", "VARCHAR(500)"),
     ("notifications", "sent_webhook", "BOOLEAN DEFAULT 0 NOT NULL"),
+    ("subscriptions", "auto_renew", "BOOLEAN DEFAULT 1 NOT NULL"),
 ]
 
 DEFAULT_CATEGORIES = [
@@ -53,6 +54,17 @@ def migrate_database():
             if column not in existing:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
                 logger.info(f"自动迁移: {table}.{column} 已添加")
+        conn.commit()
+
+
+def migrate_auto_renew():
+    with engine.connect() as conn:
+        result = conn.execute(text(
+            "UPDATE subscriptions SET auto_renew = 0 "
+            "WHERE billing_cycle IN ('once', 'permanent') AND auto_renew = 1"
+        ))
+        if result.rowcount > 0:
+            logger.info(f"自动迁移: 将 {result.rowcount} 个一次性/永久订阅设置为 auto_renew=False")
         conn.commit()
 
 
@@ -85,6 +97,7 @@ async def lifespan(app: FastAPI):
     # Startup
     Base.metadata.create_all(bind=engine)
     migrate_database()
+    migrate_auto_renew()
     seed_database()
     start_scheduler()
     logger.info("SubLedger 启动完成")

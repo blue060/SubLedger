@@ -22,6 +22,7 @@ class SubscriptionCreate(BaseModel):
     intro_amount: Optional[float] = None
     intro_months: Optional[int] = None
     notify: bool = True
+    auto_renew: bool = True
     tag_ids: list[int] = []
     shared_with: Optional[str] = None
     my_share: float = Field(default=100.0, ge=0, le=100)
@@ -58,6 +59,7 @@ class SubscriptionUpdate(BaseModel):
     intro_amount: Optional[float] = None
     intro_months: Optional[int] = None
     notify: Optional[bool] = None
+    auto_renew: Optional[bool] = None
     is_active: Optional[bool] = None
     tag_ids: Optional[list[int]] = None
     shared_with: Optional[str] = None
@@ -97,6 +99,7 @@ class SubscriptionOut(BaseModel):
     intro_months: Optional[int] = None
     remaining_days: Optional[int] = None
     notify: bool
+    auto_renew: bool = True
     is_active: bool
     tags: list[dict] = []
     shared_with: Optional[str] = None
