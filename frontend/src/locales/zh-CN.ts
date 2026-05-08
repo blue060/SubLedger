@@ -209,14 +209,6 @@ export const zhCN = {
     monthlyCost: '月均',
     yearlyCost: '年费用',
   },
-  advisor: {
-    title: '取消建议',
-    priceIncrease: '涨价提醒',
-    duplicateService: '重复服务',
-    nearExpiry: '续费决策',
-    cancelToSave: '取消可省',
-    perYear: '/年',
-  },
   tag: {
     title: '标签管理',
     addTag: '添加标签',

@@ -15,7 +15,3 @@ export function getTopSubscriptions(limit = 10) {
 export function getCurrencyBreakdown() {
   return api.get('/analytics/currency-breakdown')
 }
-
-export function getAdvisorTips() {
-  return api.get('/advisor/tips')
-}
