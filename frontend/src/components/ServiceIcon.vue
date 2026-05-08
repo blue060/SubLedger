@@ -5,13 +5,9 @@
     :title="name"
   >
     <img
-      v-if="iconSrc"
-      :src="iconSrc"
-    />
-    <img
-      v-else-if="!iconFailed && resolvedUrl"
-      :src="resolvedUrl"
-      @error="handleGoogleError"
+      v-if="currentSrc && !allFailed"
+      :src="currentSrc"
+      @error="handleError"
     />
     <span v-else class="letter-avatar" :style="letterStyle">
       {{ letter }}
@@ -21,17 +17,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { getServiceIconKey, getCategoryColor } from '../utils/serviceIcons'
-
-// Import all built-in SVGs as URLs via Vite's ?url import
-const iconModules = import.meta.glob('../assets/icons/*.svg', { eager: true, query: '?url', import: 'default' })
-
-// Build a map: iconKey → resolved URL
-const iconUrlMap: Record<string, string> = {}
-for (const path in iconModules) {
-  const key = path.replace('../assets/icons/', '').replace('.svg', '')
-  iconUrlMap[key] = (iconModules[path] as string) || ''
-}
+import { getIconSources, getCategoryColor } from '../utils/serviceIcons'
 
 const props = defineProps<{
   name: string
@@ -41,30 +27,28 @@ const props = defineProps<{
 }>()
 
 const size = computed(() => props.size || 40)
-const iconKey = computed(() => getServiceIconKey(props.url || '', props.name))
-const iconSrc = computed(() => iconKey.value ? iconUrlMap[iconKey.value] : null)
 
-// Google Favicon API fallback
-const resolvedUrl = computed(() => {
-  if (!props.url) return null
-  try {
-    const domain = new URL(props.url.startsWith('http') ? props.url : `https://${props.url}`).hostname
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
-  } catch {
-    return null
-  }
+// Build ordered list of icon sources to try
+const sources = computed(() => getIconSources(props.url || '', props.name))
+const sourceIndex = ref(0)
+const allFailed = ref(false)
+
+const currentSrc = computed(() => {
+  if (allFailed.value || sourceIndex.value >= sources.value.length) return null
+  return sources.value[sourceIndex.value]
 })
 
-const iconFailed = ref(false)
-function handleGoogleError() {
-  iconFailed.value = true
+function handleError() {
+  if (sourceIndex.value < sources.value.length - 1) {
+    sourceIndex.value++
+  } else {
+    allFailed.value = true
+  }
 }
 
 const letter = computed(() => {
   const n = props.name.trim()
-  // For Chinese names, use first character
   if (/[一-鿿]/.test(n)) return n[0]
-  // For English names, use first letter uppercase
   return n[0]?.toUpperCase() || '?'
 })
 

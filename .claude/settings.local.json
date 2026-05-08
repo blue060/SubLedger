@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npm create *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(ADMIN_PASSWORD=testpassword pytest tests/test_auth.py -v)",
+      "Bash(ADMIN_PASSWORD=testpassword pytest tests/ -v)",
+      "Bash(git add *)",
+      "Bash(git config *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(pip list *)",
+      "Bash(python -c \"import sys; sys.path.insert\\(0, '.'\\); from app.models import Base; print\\('OK'\\)\")",
+      "Bash(/d/python/python312/python312.exe *)",
+      "Bash(python -c \"print\\('hello'\\)\")",
+      "Bash(git commit *)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:apps.apple.com)",
+      "Bash(ADMIN_PASSWORD=test python -c \"import tests.test_billing\")"
+    ]
+  }
+}
