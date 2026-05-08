@@ -9,8 +9,8 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import Base, engine, SessionLocal
-from app.models import User, Category, Notification, Subscription, AppSettings
-from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data
+from app.models import User, Category, Notification, Subscription, AppSettings, PaymentRecord
+from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger("subledger")
@@ -109,6 +109,7 @@ app.include_router(dashboard.router)
 app.include_router(notifications.router)
 app.include_router(settings_router.router)
 app.include_router(data.router)
+app.include_router(payments.router)
 
 # Static files & SPA fallback
 static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static")

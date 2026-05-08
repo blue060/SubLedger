@@ -21,6 +21,14 @@
           <el-icon><List /></el-icon>
           <span>{{ zhCN.nav.subscriptions }}</span>
         </el-menu-item>
+        <el-menu-item index="/payments">
+          <el-icon><Wallet /></el-icon>
+          <span>{{ zhCN.nav.payments }}</span>
+        </el-menu-item>
+        <el-menu-item index="/analytics">
+          <el-icon><TrendCharts /></el-icon>
+          <span>{{ zhCN.nav.analytics }}</span>
+        </el-menu-item>
         <el-menu-item index="/calendar">
           <el-icon><Calendar /></el-icon>
           <span>{{ zhCN.nav.calendar }}</span>
@@ -58,7 +66,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon } from '@element-plus/icons-vue'
+import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon, Wallet, TrendCharts } from '@element-plus/icons-vue'
 import { useAuthStore } from '../../stores/auth'
 import { zhCN } from '../../locales/zh-CN'
 import api from '../../composables/useApi'

@@ -57,6 +57,7 @@ class Subscription(Base):
     category: Mapped[Optional["Category"]] = relationship("Category", back_populates="subscriptions", lazy="joined")
     notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="subscription", cascade="all, delete-orphan")
     price_history: Mapped[list["PriceHistory"]] = relationship("PriceHistory", cascade="all, delete-orphan")
+    payment_records: Mapped[list["PaymentRecord"]] = relationship("PaymentRecord", back_populates="subscription", cascade="all, delete-orphan")
 
 
 class Notification(Base):
@@ -106,3 +107,18 @@ class PriceHistory(Base):
     old_currency: Mapped[str] = mapped_column(String(3), nullable=False)
     new_currency: Mapped[str] = mapped_column(String(3), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class PaymentRecord(Base):
+    __tablename__ = "payment_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id"), nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="CNY")
+    payment_date: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    subscription: Mapped["Subscription"] = relationship("Subscription", back_populates="payment_records")

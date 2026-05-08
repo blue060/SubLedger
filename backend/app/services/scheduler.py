@@ -3,7 +3,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.database import SessionLocal
-from app.models import Subscription
+from app.models import Subscription, PaymentRecord
 from app.services.notifier import check_upcoming_subscriptions
 from app.services.billing import calculate_next_payment_date
 
@@ -40,6 +40,7 @@ def _advance_overdue_payment_dates(db):
     )
     updated = 0
     for sub in subs:
+        old_date = sub.next_payment_date
         new_date = calculate_next_payment_date(
             sub.first_payment_date,
             sub.billing_cycle,
@@ -47,7 +48,14 @@ def _advance_overdue_payment_dates(db):
             billing_cycle_num=sub.billing_cycle_num or 1,
             billing_cycle_unit=sub.billing_cycle_unit or "month",
         )
-        if new_date and new_date != sub.next_payment_date:
+        if new_date and new_date != old_date:
+            db.add(PaymentRecord(
+                subscription_id=sub.id,
+                amount=sub.amount,
+                currency=sub.currency,
+                payment_date=old_date,
+                status="pending",
+            ))
             sub.next_payment_date = new_date
             updated += 1
     if updated:
