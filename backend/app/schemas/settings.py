@@ -13,6 +13,7 @@ class SettingsOut(BaseModel):
     smtp_tls: bool = True
     bark_url: Optional[str] = None
     serverchan_key: Optional[str] = None
+    webhook_url: Optional[str] = None
 
 
 class SettingsUpdate(BaseModel):
@@ -27,6 +28,7 @@ class SettingsUpdate(BaseModel):
     smtp_tls: Optional[bool] = None
     bark_url: Optional[str] = None
     serverchan_key: Optional[str] = None
+    webhook_url: Optional[str] = None
 
 
 class PasswordChange(BaseModel):

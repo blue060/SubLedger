@@ -114,11 +114,33 @@
         <el-form-item :label="zhCN.settings.serverchanKey">
           <el-input v-model="settingsForm.serverchan_key" />
         </el-form-item>
+        <el-form-item :label="zhCN.settings.webhookUrl">
+          <el-input v-model="settingsForm.webhook_url" placeholder="https://your-webhook.example.com/hook" />
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSaveSettings">{{ zhCN.common.save }}</el-button>
           <el-button @click="handleTestPush">{{ zhCN.settings.testPush }}</el-button>
         </el-form-item>
       </el-form>
+    </el-card>
+
+    <el-card class="settings-card">
+      <template #header>{{ zhCN.settings.backupSection }}</template>
+      <el-button type="primary" @click="handleTriggerBackup" :loading="backupLoading">{{ zhCN.settings.triggerBackup }}</el-button>
+      <el-table :data="backups" stripe style="margin-top: 12px" v-if="backups.length">
+        <el-table-column prop="created_at" :label="zhCN.payment.date" width="180">
+          <template #default="{ row }">{{ row.created_at?.replace('T', ' ').slice(0, 19) }}</template>
+        </el-table-column>
+        <el-table-column prop="file_size" label="大小" width="120">
+          <template #default="{ row }">{{ (row.file_size / 1024 / 1024).toFixed(2) }} MB</template>
+        </el-table-column>
+        <el-table-column label="" width="160">
+          <template #default="{ row }">
+            <el-button size="small" @click="handleDownloadBackup(row.id)">{{ zhCN.settings.downloadBackup }}</el-button>
+            <el-button size="small" type="danger" @click="handleDeleteBackup(row.id)">{{ zhCN.common.delete }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-card>
 
     <el-card class="settings-card">
@@ -139,6 +161,7 @@ import { getSettings, updateSettings, changePassword, testEmail, testPush } from
 import { exportData, importData } from '../api/data'
 import { useCategoryStore } from '../stores/category'
 import { reorderCategories } from '../api/categories'
+import { listBackups, triggerBackup, downloadBackup, deleteBackup } from '../api/backups'
 import { zhCN } from '../locales/zh-CN'
 
 const categoryStore = useCategoryStore()
@@ -157,6 +180,7 @@ const settingsForm = reactive({
   smtp_tls: true,
   bark_url: null as string | null,
   serverchan_key: null as string | null,
+  webhook_url: null as string | null,
 })
 
 const categoryDialogVisible = ref(false)
@@ -168,11 +192,15 @@ const predefineColors = [
   '#f56c6c', '#e6a23c', '#909399',
 ]
 
+const backups = ref<any[]>([])
+const backupLoading = ref(false)
+
 onMounted(async () => {
   const res = await getSettings()
   Object.assign(settingsForm, res.data)
   settingsForm.smtp_password = null
   await categoryStore.fetchList()
+  await fetchBackups()
 })
 
 async function handleSaveSettings() {
@@ -227,6 +255,53 @@ async function handleImport(file: File) {
     ElMessage.error(e.response?.data?.detail || zhCN.common.error)
   }
   return false
+}
+
+async function fetchBackups() {
+  try {
+    const res = await listBackups()
+    backups.value = res.data
+  } catch {}
+}
+
+async function handleTriggerBackup() {
+  backupLoading.value = true
+  try {
+    await triggerBackup()
+    ElMessage.success(zhCN.common.success)
+    await fetchBackups()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || zhCN.common.error)
+  } finally {
+    backupLoading.value = false
+  }
+}
+
+async function handleDownloadBackup(id: number) {
+  try {
+    const res = await downloadBackup(id)
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `subledger_backup_${id}.db`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch {
+    ElMessage.error(zhCN.common.error)
+  }
+}
+
+async function handleDeleteBackup(id: number) {
+  try {
+    await ElMessageBox.confirm(zhCN.common.confirm, zhCN.common.delete, { type: 'warning' })
+    await deleteBackup(id)
+    ElMessage.success(zhCN.common.success)
+    await fetchBackups()
+  } catch (e: any) {
+    if (e?.response?.data?.detail) {
+      ElMessage.error(e.response.data.detail)
+    }
+  }
 }
 
 // Category management

@@ -26,6 +26,7 @@ def get_settings(db: Session = Depends(get_db)):
         smtp_tls=settings.smtp_tls,
         bark_url=settings.bark_url,
         serverchan_key=settings.serverchan_key,
+        webhook_url=settings.webhook_url,
     )
 
 
@@ -54,6 +55,7 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
         smtp_tls=settings.smtp_tls,
         bark_url=settings.bark_url,
         serverchan_key=settings.serverchan_key,
+        webhook_url=settings.webhook_url,
     )
 
 

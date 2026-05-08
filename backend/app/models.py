@@ -79,6 +79,7 @@ class Notification(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     sent_email: Mapped[bool] = mapped_column(Boolean, default=False)
     sent_push: Mapped[bool] = mapped_column(Boolean, default=False)
+    sent_webhook: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     subscription: Mapped["Subscription"] = relationship("Subscription", back_populates="notifications")
@@ -102,6 +103,7 @@ class AppSettings(Base):
     exchange_rate_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     monthly_budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     theme: Mapped[str] = mapped_column(String(10), default="light")
+    webhook_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -142,3 +144,12 @@ class Tag(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", secondary=subscription_tags, back_populates="tags")
+
+
+class BackupRecord(Base):
+    __tablename__ = "backup_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())

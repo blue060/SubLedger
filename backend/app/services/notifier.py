@@ -47,6 +47,18 @@ class Notifier:
             except Exception:
                 pass
 
+        if settings.webhook_url:
+            try:
+                await self.send_webhook(
+                    title="SubLedger 订阅提醒",
+                    body=notification.message,
+                    subscription_id=notification.subscription_id,
+                    webhook_url=settings.webhook_url,
+                )
+                notification.sent_webhook = True
+            except Exception:
+                pass
+
         db.commit()
 
     async def send_email(self, subject: str, body: str, settings: AppSettings) -> None:
@@ -87,6 +99,15 @@ class Notifier:
                 f"https://sctapi.ftqq.com/{key}.send",
                 data={"title": title, "desp": body},
             )
+
+    async def send_webhook(self, title: str, body: str, subscription_id: int, webhook_url: str) -> None:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(webhook_url, json={
+                "title": title,
+                "body": body,
+                "subscription_id": subscription_id,
+                "source": "SubLedger",
+            })
 
 
 notifier = Notifier()

@@ -6,6 +6,7 @@ from app.database import SessionLocal
 from app.models import Subscription, PaymentRecord
 from app.services.notifier import check_upcoming_subscriptions
 from app.services.billing import calculate_next_payment_date
+from app.services.backup import perform_backup
 
 logger = logging.getLogger("subledger")
 
@@ -23,6 +24,17 @@ async def daily_check_job():
     finally:
         db.close()
     logger.info("订阅检查完成")
+
+
+def backup_job():
+    logger.info("开始自动备份...")
+    db = SessionLocal()
+    try:
+        perform_backup(db)
+    except Exception as e:
+        logger.error(f"自动备份失败: {e}")
+    finally:
+        db.close()
 
 
 def _advance_overdue_payment_dates(db):
@@ -70,6 +82,14 @@ def start_scheduler():
         hour=0,
         minute=0,
         id="daily_subscription_check",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        backup_job,
+        "cron",
+        hour=3,
+        minute=0,
+        id="auto_backup",
         replace_existing=True,
     )
     scheduler.start()
