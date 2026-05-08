@@ -68,9 +68,6 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="payment_method" :label="zhCN.subscription.paymentMethod" width="120" sortable>
-        <template #default="{ row }">{{ row.payment_method || '-' }}</template>
-      </el-table-column>
       <el-table-column prop="category_name" :label="zhCN.subscription.category" sortable>
         <template #default="{ row }">
           <el-tag v-if="row.category_name" :color="row.category_color" style="color: #fff">{{ row.category_name }}</el-tag>
@@ -120,6 +117,10 @@
           </div>
           <div v-if="form.billing_cycle === 'custom'" class="cycle-tip">{{ zhCN.subscription.customCycleExample }}</div>
         </el-form-item>
+        <el-form-item v-if="form.billing_cycle !== 'once' && form.billing_cycle !== 'permanent'" :label="zhCN.subscription.autoRenew">
+          <el-switch v-model="form.auto_renew" />
+          <span class="cycle-tip" style="margin-left: 8px">{{ zhCN.subscription.autoRenewHint }}</span>
+        </el-form-item>
         <el-form-item :label="zhCN.subscription.firstPayment" prop="first_payment_date"><el-date-picker v-model="form.first_payment_date" type="date" value-format="YYYY-MM-DD" /></el-form-item>
         <el-form-item :label="zhCN.subscription.category">
           <el-select v-model="form.category_id" clearable>
@@ -145,10 +146,6 @@
         </el-form-item>
 
         <el-form-item :label="zhCN.subscription.notify"><el-switch v-model="form.notify" /></el-form-item>
-        <el-form-item :label="zhCN.subscription.autoRenew">
-          <el-switch v-model="form.auto_renew" />
-          <div class="cycle-tip">{{ zhCN.subscription.autoRenewHint }}</div>
-        </el-form-item>
         <el-form-item :label="zhCN.tag.title">
           <el-select v-model="form.tag_ids" multiple filterable allow-create default-first-option style="width: 100%" :placeholder="zhCN.tag.addTag">
             <el-option v-for="tag in tags" :key="tag.id" :label="tag.name" :value="tag.id" />
@@ -298,6 +295,11 @@ function onCycleChange() {
   if (form.billing_cycle !== 'custom') {
     form.billing_cycle_num = 1
     form.billing_cycle_unit = 'month'
+  }
+  if (form.billing_cycle === 'once' || form.billing_cycle === 'permanent') {
+    form.auto_renew = false
+  } else {
+    form.auto_renew = true
   }
 }
 
