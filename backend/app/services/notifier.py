@@ -127,6 +127,7 @@ async def check_upcoming_subscriptions(db: Session) -> None:
         .filter(
             Subscription.is_active == True,
             Subscription.notify == True,
+            Subscription.auto_renew == True,
             Subscription.next_payment_date >= today,
             Subscription.next_payment_date <= end_date,
         )
@@ -147,10 +148,7 @@ async def check_upcoming_subscriptions(db: Session) -> None:
 
         currency_symbols = {"CNY": "¥", "USD": "$", "EUR": "€", "GBP": "£", "JPY": "¥", "HKD": "$"}
         symbol = currency_symbols.get(sub.currency, sub.currency)
-        if sub.auto_renew:
-            message = f"{sub.name} 将于 {sub.next_payment_date} 扣款 {symbol}{sub.amount:.2f}"
-        else:
-            message = f"{sub.name} 将于 {sub.next_payment_date} 到期续费 {symbol}{sub.amount:.2f}"
+        message = f"{sub.name} 将于 {sub.next_payment_date} 扣款 {symbol}{sub.amount:.2f}"
 
         notification = Notification(
             subscription_id=sub.id,

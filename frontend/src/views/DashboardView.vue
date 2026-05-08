@@ -93,7 +93,7 @@
     <el-empty v-if="!subscriptions.length" :description="zhCN.dashboard.noSubscriptions" />
     <el-row v-else :gutter="16" class="sub-cards">
       <el-col v-for="sub in subscriptions.slice(0, 8)" :key="sub.id" :xs="24" :sm="12" :md="8" :lg="6">
-        <el-card shadow="hover" class="sub-card" :class="{ 'sub-expiring': sub.remaining_days != null && sub.remaining_days <= 30 }">
+        <el-card shadow="hover" class="sub-card" :class="{ 'sub-expiring': !sub.auto_renew && sub.remaining_days != null && sub.remaining_days <= 30 }">
           <div class="sub-card-header">
             <ServiceIcon :name="sub.name" :url="sub.url" :category-color="sub.category_color" :size="36" />
             <span class="sub-card-name">{{ sub.name }}</span>
@@ -110,7 +110,7 @@
           <div v-if="sub.billing_cycle === 'permanent'" class="sub-card-expiry">
             <el-tag type="success" size="small">{{ zhCN.dashboard.permanentLabel }}</el-tag>
           </div>
-          <div v-else-if="sub.remaining_days != null" class="sub-card-expiry">
+          <div v-else-if="!sub.auto_renew && sub.remaining_days != null" class="sub-card-expiry">
             <el-tag :type="sub.remaining_days <= 0 ? 'danger' : sub.remaining_days <= 7 ? 'danger' : sub.remaining_days <= 30 ? 'warning' : 'info'" size="small">
               {{ sub.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(sub.remaining_days)) }}
             </el-tag>

@@ -44,6 +44,7 @@ def _advance_overdue_payment_dates(db):
         db.query(Subscription)
         .filter(
             Subscription.is_active == True,
+            Subscription.auto_renew == True,
             Subscription.next_payment_date != None,
             Subscription.next_payment_date < today,
             Subscription.billing_cycle.notin_(["once", "permanent"]),

@@ -196,7 +196,9 @@ def get_expiring(days: int = Query(default=30, ge=1, le=365), db: Session = Depe
     threshold = today + timedelta(days=days)
     subs = db.query(Subscription).filter(
         Subscription.is_active == True,
+        Subscription.auto_renew == False,
         Subscription.expiry_date != None,
+        Subscription.expiry_date >= today,
         Subscription.expiry_date <= threshold,
     ).order_by(Subscription.expiry_date).all()
 
