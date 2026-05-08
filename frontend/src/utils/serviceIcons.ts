@@ -13,6 +13,9 @@ const BUILTIN_ICONS: Record<string, string> = {
   'kugou': 'kugou',
   'pan.baidu.com': 'baidu-pan',
   'aliyun': 'aliyun',
+  'huaweicloud': 'huaweicloud',
+  'greencloud': 'greencloudvps',
+  'greencloudvps': 'greencloudvps',
   'weiyun': 'icloud',
   'weixin.qq.com': 'wechat',
   'weibo': 'weibo',
@@ -34,6 +37,27 @@ const BUILTIN_ICONS: Record<string, string> = {
   'microsoft': 'microsoft-365',
   'discord': 'discord',
   'steam': 'steam',
+}
+
+// Service name keyword → icon key (for matching by subscription name)
+const NAME_ICON_MAP: Record<string, string> = {
+  'b站': 'bilibili',
+  '哔哩哔哩': 'bilibili',
+  '爱奇艺': 'iqiyi',
+  '腾讯视频': 'tencent-video',
+  '优酷': 'youku',
+  '芒果': 'mgtv',
+  '网易云': 'netease-music',
+  'qq音乐': 'qq-music',
+  '酷狗': 'kugou',
+  '百度网盘': 'baidu-pan',
+  '阿里云': 'aliyun',
+  '华为云': 'huaweicloud',
+  'greencloud': 'greencloudvps',
+  '微信': 'wechat',
+  '微博': 'weibo',
+  '美团': 'meituan',
+  'wps': 'wps',
 }
 
 // Category color fallback for letter avatars
@@ -64,16 +88,27 @@ const CATEGORY_ICON_MAP: Record<string, string> = {
 }
 
 /**
- * Try to match a URL to a built-in icon key
+ * Try to match a URL or name to a built-in icon key
  */
-export function getServiceIconKey(url: string | null | undefined): string | null {
-  if (!url) return null
-  const lower = url.toLowerCase()
-  // Check longer domain matches first (more specific)
-  const sortedKeys = Object.keys(BUILTIN_ICONS).sort((a, b) => b.length - a.length)
-  for (const key of sortedKeys) {
-    if (lower.includes(key)) {
-      return BUILTIN_ICONS[key]
+export function getServiceIconKey(url: string | null | undefined, name?: string): string | null {
+  // Try URL match first
+  if (url) {
+    const lower = url.toLowerCase()
+    const sortedKeys = Object.keys(BUILTIN_ICONS).sort((a, b) => b.length - a.length)
+    for (const key of sortedKeys) {
+      if (lower.includes(key)) {
+        return BUILTIN_ICONS[key]
+      }
+    }
+  }
+  // Try name match
+  if (name) {
+    const nameLower = name.toLowerCase()
+    const sortedNameKeys = Object.keys(NAME_ICON_MAP).sort((a, b) => b.length - a.length)
+    for (const key of sortedNameKeys) {
+      if (nameLower.includes(key)) {
+        return NAME_ICON_MAP[key]
+      }
     }
   }
   return null

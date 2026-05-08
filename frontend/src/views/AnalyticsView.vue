@@ -33,83 +33,72 @@
       <div ref="trendRef" style="height: 320px"></div>
     </el-card>
 
-    <!-- Top subscriptions + Currency breakdown -->
-    <el-row :gutter="16" style="margin-top: 16px">
-      <el-col :span="14" :xs="24">
-        <el-card shadow="hover" class="chart-card">
-          <template #header>{{ zhCN.analytics.topSubscriptions }}</template>
-          <div class="top-subs-list">
-            <div v-for="(sub, i) in topSubs" :key="sub.id" class="top-sub-item">
-              <div class="top-sub-rank">{{ i + 1 }}</div>
-              <div class="top-sub-info">
-                <span class="top-sub-name">{{ sub.name }}</span>
-                <el-tag v-if="sub.category_name" :color="sub.category_color" size="small" effect="dark" style="color: #fff; border: none; border-radius: 6px">{{ sub.category_name }}</el-tag>
-              </div>
-              <div class="top-sub-cost">
-                <span class="top-sub-original">{{ sub.currency }} {{ sub.amount.toFixed(2) }}</span>
-                <span class="top-sub-converted">≈ {{ sub.converted_amount.toFixed(2) }}</span>
-              </div>
-              <div class="top-sub-bar">
-                <div class="top-sub-bar-fill" :style="{ width: barWidth(sub) + '%' }"></div>
-              </div>
-            </div>
-            <el-empty v-if="!topSubs.length" :description="zhCN.common.noData" />
+    <!-- Top subscriptions -->
+    <el-card shadow="hover" class="chart-card" style="margin-top: 16px">
+      <template #header>{{ zhCN.analytics.topSubscriptions }}</template>
+      <div class="top-subs-list">
+        <div v-for="(sub, i) in topSubs" :key="sub.id" class="top-sub-item">
+          <div class="top-sub-rank">{{ i + 1 }}</div>
+          <div class="top-sub-info">
+            <span class="top-sub-name">{{ sub.name }}</span>
+            <el-tag v-if="sub.category_name" :color="sub.category_color" size="small" effect="dark" style="color: #fff; border: none; border-radius: 6px">{{ sub.category_name }}</el-tag>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :span="10" :xs="24">
-        <el-card shadow="hover" class="chart-card">
-          <template #header>{{ zhCN.analytics.currencyBreakdown }}</template>
-          <div ref="currencyRef" style="height: 260px"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+          <div class="top-sub-cost">
+            <span class="top-sub-monthly">{{ sub.currency }} {{ monthlyCost(sub).toFixed(2) }}</span>
+            <span class="top-sub-monthly-label">/月</span>
+          </div>
+          <div class="top-sub-bar">
+            <div class="top-sub-bar-fill" :style="{ width: barWidth(sub) + '%' }"></div>
+          </div>
+        </div>
+        <el-empty v-if="!topSubs.length" :description="zhCN.common.noData" />
+      </div>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
-import { getMonthlyComparison, getCategoryTrend, getTopSubscriptions, getCurrencyBreakdown } from '../api/analytics'
+import { getMonthlyComparison, getCategoryTrend, getTopSubscriptions } from '../api/analytics'
 import { zhCN } from '../locales/zh-CN'
 
 const loading = ref(true)
 const comparison = ref<Record<string, any>>({ current_month: 0, last_month: 0, change: 0, currency: 'CNY' })
 const trend = ref<any[]>([])
 const topSubs = ref<any[]>([])
-const currencyData = ref<any[]>([])
 
 const trendRef = ref<HTMLElement>()
-const currencyRef = ref<HTMLElement>()
 let trendChart: echarts.ECharts | null = null
-let currencyChart: echarts.ECharts | null = null
 const isDark = ref(document.documentElement.classList.contains('dark'))
 
 const palette = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#a78bfa','#0ea5e9','#34d399']
 
-function barWidth(sub: any) {
-  const max = Math.max(...topSubs.value.map(s => s.converted_amount))
-  if (!max) return 0
-  return Math.round((sub.converted_amount / max) * 100)
+function monthlyCost(sub: any) {
+  // converted_amount is yearly equivalent from backend
+  return (sub.converted_amount || 0) / 12
 }
 
-const resizeHandler = () => { trendChart?.resize(); currencyChart?.resize() }
+function barWidth(sub: any) {
+  const max = Math.max(...topSubs.value.map(s => monthlyCost(s)))
+  if (!max) return 0
+  return Math.round((monthlyCost(sub) / max) * 100)
+}
+
+const resizeHandler = () => { trendChart?.resize() }
 
 onMounted(async () => {
-  const [compRes, trendRes, topRes, curRes] = await Promise.all([
+  const [compRes, trendRes, topRes] = await Promise.all([
     getMonthlyComparison().catch(() => ({ data: {} })),
     getCategoryTrend().catch(() => ({ data: [] })),
     getTopSubscriptions().catch(() => ({ data: [] })),
-    getCurrencyBreakdown().catch(() => ({ data: [] })),
   ])
   comparison.value = compRes.data
   trend.value = trendRes.data
   topSubs.value = topRes.data
-  currencyData.value = curRes.data
 
   await nextTick()
   renderTrend()
-  renderCurrency()
   loading.value = false
   window.addEventListener('resize', resizeHandler)
 })
@@ -117,7 +106,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeHandler)
   trendChart?.dispose()
-  currencyChart?.dispose()
 })
 
 function renderTrend() {
@@ -177,46 +165,6 @@ function renderTrend() {
   })
 }
 
-function renderCurrency() {
-  if (!currencyRef.value || !currencyData.value.length) return
-  currencyChart = echarts.init(currencyRef.value)
-  const textColor = isDark.value ? '#94a3b8' : '#64748b'
-
-  currencyChart.setOption({
-    tooltip: {
-      trigger: 'item',
-      confine: true,
-      backgroundColor: isDark.value ? '#1e293b' : '#fff',
-      borderColor: isDark.value ? '#334155' : '#e2e8f0',
-      textStyle: { color: isDark.value ? '#e2e8f0' : '#1e293b', fontSize: 13 },
-      formatter: (p: any) => `<b>${p.name}</b><br/>${p.value.toFixed(2)} · ${p.percent}%`,
-    },
-    series: [{
-      type: 'pie',
-      radius: ['42%', '72%'],
-      center: ['50%', '44%'],
-      itemStyle: { borderRadius: 8, borderColor: isDark.value ? 'rgba(255,255,255,.04)' : '#fff', borderWidth: 3 },
-      data: currencyData.value.map((c: any, i: number) => ({
-        name: `${c.currency} (${c.count})`,
-        value: c.converted_amount,
-        itemStyle: { color: palette[i % palette.length] },
-      })),
-      label: { show: false },
-      emphasis: {
-        scaleSize: 6,
-        itemStyle: { shadowBlur: 16, shadowColor: 'rgba(99,102,241,.25)' },
-      },
-    }],
-    legend: {
-      bottom: 0,
-      type: 'scroll',
-      textStyle: { fontSize: 12, color: textColor },
-      itemWidth: 12,
-      itemHeight: 12,
-      icon: 'roundRect',
-    },
-  })
-}
 </script>
 
 <style scoped>
@@ -319,7 +267,8 @@ function renderCurrency() {
   white-space: nowrap;
 }
 .top-sub-original { font-size: 14px; font-weight: 600; color: var(--text-primary, #0f172a); }
-.top-sub-converted { font-size: 12px; color: var(--text-muted, #94a3b8); margin-left: 4px; }
+.top-sub-monthly { font-size: 15px; font-weight: 700; color: var(--primary, #6366f1); }
+.top-sub-monthly-label { font-size: 12px; color: var(--text-muted, #94a3b8); margin-left: 2px; }
 .top-sub-bar {
   grid-column: 2 / 4;
   height: 4px;
@@ -343,6 +292,6 @@ html.dark .comp-card-up .comp-icon { background: rgba(239,68,68,.12); }
 html.dark .comp-card-down .comp-icon { background: rgba(16,185,129,.12); }
 html.dark .top-sub-item { border-bottom-color: rgba(255,255,255,.04); }
 html.dark .top-sub-name { color: #e2e8f0; }
-html.dark .top-sub-original { color: #e2e8f0; }
+html.dark .top-sub-monthly { color: #818cf8; }
 html.dark .top-sub-bar { background: rgba(129,140,248,.08); }
 </style>

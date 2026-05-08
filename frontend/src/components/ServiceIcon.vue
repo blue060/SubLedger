@@ -41,7 +41,7 @@ const props = defineProps<{
 }>()
 
 const size = computed(() => props.size || 40)
-const iconKey = computed(() => getServiceIconKey(props.url || ''))
+const iconKey = computed(() => getServiceIconKey(props.url || '', props.name))
 const iconSrc = computed(() => iconKey.value ? iconUrlMap[iconKey.value] : null)
 
 // Google Favicon API fallback

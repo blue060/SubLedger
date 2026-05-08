@@ -205,7 +205,7 @@ export const zhCN = {
     title: '支出分析',
     monthlyComparison: '月度对比',
     categoryTrend: '分类趋势',
-    topSubscriptions: '最贵订阅',
+    topSubscriptions: '订阅排行',
     currencyBreakdown: '货币分布',
     currentMonth: '本月',
     lastMonth: '上月',
