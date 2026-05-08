@@ -87,6 +87,7 @@ export const zhCN = {
     filterAll: '全部',
     priceHistory: '价格变动记录',
     noPriceHistory: '暂无价格变动',
+    quickAdd: '快速添加',
     nameRequired: '请输入订阅名称',
     amountRequired: '请输入金额',
     firstPaymentRequired: '请选择首次付款日',
@@ -230,5 +231,11 @@ export const zhCN = {
     myCost: '我的费用',
     totalCost: '总费用',
     sharedFilter: '仅共享',
+  },
+  search: {
+    title: '全局搜索',
+    placeholder: '搜索订阅、通知、分类...',
+    noResults: '没有找到相关结果',
+    categoryLabel: '分类',
   },
 }

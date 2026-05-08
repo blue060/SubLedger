@@ -88,6 +88,27 @@
       </el-col>
     </el-row>
 
+    <!-- Advisor tips -->
+    <el-card v-if="tips.length" shadow="hover" style="margin-top: 16px">
+      <template #header>{{ zhCN.advisor.title }}</template>
+      <div class="tips-grid">
+        <el-alert
+          v-for="tip in tips"
+          :key="tip.type + tip.subscription_id"
+          :type="tipType(tip.type)"
+          :title="tip.subscription_name"
+          :description="tip.message"
+          show-icon
+          :closable="false"
+          class="tip-alert"
+        >
+          <template v-if="tip.savings" #default>
+            <span class="tip-savings">{{ zhCN.advisor.cancelToSave }} {{ tip.currency }} {{ tip.savings.toFixed(2) }}{{ tip.type === 'cancel_to_save' ? zhCN.advisor.perYear : '' }}</span>
+          </template>
+        </el-alert>
+      </div>
+    </el-card>
+
     <!-- Subscription cards overview -->
     <h3 style="margin-top: 24px">{{ zhCN.dashboard.allSubscriptions }}</h3>
     <el-empty v-if="!subscriptions.length" :description="zhCN.dashboard.noSubscriptions" />
@@ -136,6 +157,7 @@ import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import * as echarts from 'echarts'
 import { getDashboardSummary, getDashboardStats, getDashboardCalendar, getDashboardExpiring, getDashboardTrend, getDashboardBudget } from '../api/dashboard'
 import { listSubscriptions } from '../api/subscriptions'
+import { getAdvisorTips } from '../api/analytics'
 import { zhCN } from '../locales/zh-CN'
 import { formatCurrency, getFavicon } from '../utils/format'
 
@@ -147,6 +169,7 @@ const expiring = ref<any[]>([])
 const subscriptions = ref<any[]>([])
 const trend = ref<any[]>([])
 const budget = ref<Record<string, any>>({})
+const tips = ref<any[]>([])
 const chartRef = ref<HTMLElement>()
 const trendRef = ref<HTMLElement>()
 let chartInstance: echarts.ECharts | null = null
@@ -182,6 +205,9 @@ onMounted(async () => {
   subscriptions.value = subsRes.data
   trend.value = trendRes.data
   budget.value = budgetRes.data
+
+  // Advisor tips (non-blocking)
+  getAdvisorTips().then(res => { tips.value = res.data }).catch(() => {})
 
   await nextTick()
   renderChart()
@@ -266,6 +292,16 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
     yearly: zhCN.subscription.yearly,
   }
   return labels[cycle] || cycle
+}
+
+function tipType(type: string): string {
+  const map: Record<string, string> = {
+    price_increase: 'error',
+    duplicate_service: 'warning',
+    near_expiry: 'warning',
+    cancel_to_save: 'info',
+  }
+  return map[type] || 'info'
 }
 </script>
 
@@ -390,6 +426,11 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
   text-decoration: none; transition: color 0.2s;
 }
 .view-all-link:hover { color: #7c3aed; }
+
+/* Advisor tips */
+.tips-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.tip-alert { flex: 1; min-width: 260px; }
+.tip-savings { font-size: 13px; color: #4f46e5; font-weight: 600; }
 
 /* Dark mode */
 html.dark .expiring-strip { background: #1e1030; }

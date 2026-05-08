@@ -51,6 +51,7 @@
       <el-header class="app-header">
         <el-button :icon="isCollapsed ? Expand : Fold" text @click="isCollapsed = !isCollapsed" />
         <div class="header-right">
+          <el-button :icon="Search" text @click="showSearch = true" />
           <el-button :icon="isDark ? Sunny : Moon" text @click="toggleTheme" />
           <span class="username">{{ authStore.username }}</span>
           <el-button text @click="handleLogout">{{ zhCN.auth.logout }}</el-button>
@@ -60,21 +61,24 @@
         <router-view />
       </el-main>
     </el-container>
+    <GlobalSearch v-model:visible="showSearch" />
   </el-container>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon, Wallet, TrendCharts } from '@element-plus/icons-vue'
+import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon, Wallet, TrendCharts, Search } from '@element-plus/icons-vue'
 import { useAuthStore } from '../../stores/auth'
 import { zhCN } from '../../locales/zh-CN'
 import api from '../../composables/useApi'
 import { getUnreadCount } from '../../api/notifications'
+import GlobalSearch from '../GlobalSearch.vue'
 
 const isCollapsed = ref(false)
 const isDark = ref(false)
 const unreadCount = ref(0)
+const showSearch = ref(false)
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -101,8 +105,17 @@ onMounted(async () => {
   pollTimer = setInterval(fetchUnreadCount, 60000)
 })
 
+function handleKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    showSearch.value = true
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', handleKeydown))
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
+  window.removeEventListener('keydown', handleKeydown)
 })
 
 function toggleTheme() {
