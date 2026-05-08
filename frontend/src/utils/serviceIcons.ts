@@ -7,6 +7,7 @@
  */
 
 // Service name/URL keyword → Simple Icons slug
+// Only include services that actually exist on https://simpleicons.org
 const SIMPLE_ICONS_MAP: Record<string, string> = {
   // Chinese services
   'bilibili': 'bilibili',
@@ -14,34 +15,29 @@ const SIMPLE_ICONS_MAP: Record<string, string> = {
   '哔哩哔哩': 'bilibili',
   'iqiyi': 'iqiyi',
   '爱奇艺': 'iqiyi',
+  'youku': 'youku',
+  '优酷': 'youku',
   'v.qq.com': 'tencentqq',
   'qq.com': 'tencentqq',
   '腾讯视频': 'tencentqq',
-  'youku': 'youku',
-  '优酷': 'youku',
-  'mgtv': 'weibo',
-  '芒果': 'mango',
-  'music.163.com': 'netease',
-  '网易云': 'netease',
   'y.qq.com': 'tencentqq',
   'qq音乐': 'tencentqq',
-  'kugou': 'kugou',
-  '酷狗': 'kugou',
+  'music.163.com': 'neteasecloudmusic',
+  '网易云': 'neteasecloudmusic',
+  '网易云音乐': 'neteasecloudmusic',
   'pan.baidu.com': 'baidu',
   '百度网盘': 'baidu',
   'aliyun': 'alibabacloud',
   '阿里云': 'alibabacloud',
   'huaweicloud': 'huawei',
   '华为云': 'huawei',
-  'greencloud': 'greenhouse',
-  'greencloudvps': 'greenhouse',
   'weixin.qq.com': 'wechat',
   '微信': 'wechat',
   'weibo': 'sinaweibo',
   '微博': 'sinaweibo',
-  'wps': 'wpsoffice',
   'meituan': 'meituan',
   '美团': 'meituan',
+  'wps': 'wpsoffice',
   // International services
   'netflix': 'netflix',
   'spotify': 'spotify',
