@@ -212,4 +212,19 @@ export const zhCN = {
     cancelToSave: '取消可省',
     perYear: '/年',
   },
+  tag: {
+    title: '标签管理',
+    addTag: '添加标签',
+    tagName: '标签名称',
+    tagColor: '标签颜色',
+    deleteTag: '删除标签',
+    deleteConfirm: '确定删除此标签吗？',
+  },
+  split: {
+    sharedWith: '共享对象',
+    myShare: '我的份额%',
+    myCost: '我的费用',
+    totalCost: '总费用',
+    sharedFilter: '仅共享',
+  },
 }

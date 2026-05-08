@@ -140,6 +140,17 @@
         </el-form-item>
 
         <el-form-item :label="zhCN.subscription.notify"><el-switch v-model="form.notify" /></el-form-item>
+        <el-form-item :label="zhCN.tag.title">
+          <el-select v-model="form.tag_ids" multiple filterable allow-create default-first-option style="width: 100%" :placeholder="zhCN.tag.addTag">
+            <el-option v-for="tag in tags" :key="tag.id" :label="tag.name" :value="tag.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="zhCN.split.sharedWith">
+          <el-input v-model="form.shared_with" placeholder="如：Alice, Bob" />
+        </el-form-item>
+        <el-form-item :label="zhCN.split.myShare">
+          <el-input-number v-model="form.my_share" :min="1" :max="100" :precision="0" />
+        </el-form-item>
 
         <!-- Price history -->
         <el-collapse v-if="editingId" style="margin-top: 12px">
@@ -190,6 +201,7 @@ import { useSubscriptionStore } from '../stores/subscription'
 import { useCategoryStore } from '../stores/category'
 import { zhCN } from '../locales/zh-CN'
 import { patchSubscription, batchDelete, batchToggle, batchCategory, batchExpiry, getPriceHistory } from '../api/subscriptions'
+import { listTags } from '../api/tags'
 import type { Subscription } from '../types/subscription'
 import { formatCurrency, getFavicon, cycleLabel } from '../utils/format'
 
@@ -231,11 +243,17 @@ const defaultForm = {
   category_id: null as number | null, notes: null as string | null, url: null as string | null,
   expiry_date: null as string | null, payment_method: null as string | null,
   intro_amount: null as number | null, intro_months: null as number | null,
-  notify: true,
+  notify: true, tag_ids: [] as number[],
+  shared_with: null as string | null, my_share: 100,
 }
 const form = reactive({ ...defaultForm })
+const tags = ref<any[]>([])
 
-onMounted(() => Promise.all([fetchList(), categoryStore.fetchList()]))
+onMounted(async () => {
+  await Promise.all([fetchList(), categoryStore.fetchList()])
+  const tagRes = await listTags()
+  tags.value = tagRes.data
+})
 
 async function fetchList() {
   const params: Record<string, any> = {}
@@ -265,6 +283,8 @@ async function showForm(sub?: Subscription) {
       first_payment_date: sub.first_payment_date, category_id: sub.category_id, notes: sub.notes,
       url: sub.url, expiry_date: sub.expiry_date, payment_method: sub.payment_method, notify: sub.notify,
       intro_amount: sub.intro_amount, intro_months: sub.intro_months,
+      tag_ids: (sub.tags || []).map((t: any) => t.id),
+      shared_with: sub.shared_with, my_share: sub.my_share || 100,
     })
     try {
       const res = await getPriceHistory(sub.id)

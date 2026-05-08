@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import Subscription, Category, PriceHistory
+from app.models import Subscription, Category, PriceHistory, Tag
 from app.schemas.subscription import SubscriptionCreate, SubscriptionUpdate, SubscriptionOut
 from app.schemas.price_history import PriceHistoryOut
 from app.services.billing import calculate_next_payment_date
@@ -22,6 +22,10 @@ def _sub_to_out(sub: Subscription) -> SubscriptionOut:
         out.category_color = sub.category.color
     if sub.expiry_date:
         out.remaining_days = (sub.expiry_date - date.today()).days
+    out.tags = [{"id": t.id, "name": t.name, "color": t.color} for t in sub.tags]
+    share = getattr(sub, 'my_share', 100.0) or 100.0
+    if share < 100.0:
+        out.my_amount = round(sub.amount * share / 100, 2)
     return out
 
 
@@ -63,10 +67,10 @@ def create_subscription(body: SubscriptionCreate, db: Session = Depends(get_db))
         billing_cycle_unit=body.billing_cycle_unit,
     )
 
-    sub = Subscription(
-        **body.model_dump(),
-        next_payment_date=next_date,
-    )
+    data = body.model_dump(exclude={"tag_ids"})
+    sub = Subscription(**data, next_payment_date=next_date)
+    if body.tag_ids:
+        sub.tags = db.query(Tag).filter(Tag.id.in_(body.tag_ids)).all()
     db.add(sub)
     db.commit()
     db.refresh(sub)
@@ -94,6 +98,8 @@ def get_price_history(sub_id: int, db: Session = Depends(get_db)):
 def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session) -> Subscription:
     update_data = body.model_dump(exclude_unset=True)
 
+    tag_ids = update_data.pop("tag_ids", None)
+
     for nullable_key in ("billing_cycle_num", "billing_cycle_unit"):
         if nullable_key in update_data and update_data[nullable_key] is None:
             del update_data[nullable_key]
@@ -114,6 +120,9 @@ def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session) -> S
 
     for key, value in update_data.items():
         setattr(sub, key, value)
+
+    if tag_ids is not None:
+        sub.tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
 
     if any(k in update_data for k in ("first_payment_date", "billing_cycle", "billing_cycle_num", "billing_cycle_unit")):
         sub.next_payment_date = calculate_next_payment_date(

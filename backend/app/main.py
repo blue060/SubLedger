@@ -9,8 +9,8 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import Base, engine, SessionLocal
-from app.models import User, Category, Notification, Subscription, AppSettings, PaymentRecord
-from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments
+from app.models import User, Category, Notification, Subscription, AppSettings, PaymentRecord, Tag
+from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, tags
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 logger = logging.getLogger("subledger")
@@ -26,6 +26,8 @@ MIGRATIONS = [
     ("subscriptions", "payment_method", "VARCHAR(100)"),
     ("app_settings", "monthly_budget", "FLOAT"),
     ("app_settings", "theme", "VARCHAR(10) DEFAULT 'light' NOT NULL"),
+    ("subscriptions", "shared_with", "VARCHAR(200)"),
+    ("subscriptions", "my_share", "FLOAT DEFAULT 100.0 NOT NULL"),
 ]
 
 DEFAULT_CATEGORIES = [
@@ -110,6 +112,7 @@ app.include_router(notifications.router)
 app.include_router(settings_router.router)
 app.include_router(data.router)
 app.include_router(payments.router)
+app.include_router(tags.router)
 
 # Static files & SPA fallback
 static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static")

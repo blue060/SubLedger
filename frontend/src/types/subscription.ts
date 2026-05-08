@@ -20,6 +20,10 @@ export interface Subscription {
   remaining_days: number | null
   notify: boolean
   is_active: boolean
+  tags: { id: number; name: string; color: string | null }[]
+  shared_with: string | null
+  my_share: number
+  my_amount: number | null
 }
 
 export interface SubscriptionCreate {
@@ -38,6 +42,9 @@ export interface SubscriptionCreate {
   intro_amount: number | null
   intro_months: number | null
   notify: boolean
+  tag_ids: number[]
+  shared_with: string | null
+  my_share: number
 }
 
 export interface SubscriptionUpdate {
@@ -57,6 +64,15 @@ export interface SubscriptionUpdate {
   intro_months?: number | null
   notify?: boolean
   is_active?: boolean
+  tag_ids?: number[]
+  shared_with?: string | null
+  my_share?: number
+}
+
+export interface Tag {
+  id: number
+  name: string
+  color: string | null
 }
 
 export interface Category {

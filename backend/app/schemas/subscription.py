@@ -22,6 +22,9 @@ class SubscriptionCreate(BaseModel):
     intro_amount: Optional[float] = None
     intro_months: Optional[int] = None
     notify: bool = True
+    tag_ids: list[int] = []
+    shared_with: Optional[str] = None
+    my_share: float = Field(default=100.0, ge=0, le=100)
 
     @model_validator(mode="after")
     def validate_billing_cycle_fields(self):
@@ -56,6 +59,9 @@ class SubscriptionUpdate(BaseModel):
     intro_months: Optional[int] = None
     notify: Optional[bool] = None
     is_active: Optional[bool] = None
+    tag_ids: Optional[list[int]] = None
+    shared_with: Optional[str] = None
+    my_share: Optional[float] = Field(default=None, ge=0, le=100)
 
     @model_validator(mode="after")
     def validate_update_fields(self):
@@ -92,5 +98,9 @@ class SubscriptionOut(BaseModel):
     remaining_days: Optional[int] = None
     notify: bool
     is_active: bool
+    tags: list[dict] = []
+    shared_with: Optional[str] = None
+    my_share: float = 100.0
+    my_amount: Optional[float] = None
 
     model_config = {"from_attributes": True}

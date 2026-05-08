@@ -1,10 +1,16 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Integer, String, Float, Boolean, Date, DateTime, Text, func
+from sqlalchemy import ForeignKey, Integer, String, Float, Boolean, Date, DateTime, Text, func, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+subscription_tags = Table(
+    "subscription_tags", Base.metadata,
+    Column("subscription_id", Integer, ForeignKey("subscriptions.id"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tags.id"), primary_key=True),
+)
 
 
 class User(Base):
@@ -51,6 +57,8 @@ class Subscription(Base):
     intro_months: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     notify: Mapped[bool] = mapped_column(Boolean, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    shared_with: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    my_share: Mapped[float] = mapped_column(Float, default=100.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -58,6 +66,7 @@ class Subscription(Base):
     notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="subscription", cascade="all, delete-orphan")
     price_history: Mapped[list["PriceHistory"]] = relationship("PriceHistory", cascade="all, delete-orphan")
     payment_records: Mapped[list["PaymentRecord"]] = relationship("PaymentRecord", back_populates="subscription", cascade="all, delete-orphan")
+    tags: Mapped[list["Tag"]] = relationship("Tag", secondary=subscription_tags, back_populates="subscriptions")
 
 
 class Notification(Base):
@@ -122,3 +131,14 @@ class PaymentRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     subscription: Mapped["Subscription"] = relationship("Subscription", back_populates="payment_records")
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", secondary=subscription_tags, back_populates="tags")
