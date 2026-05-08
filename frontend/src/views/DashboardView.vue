@@ -52,16 +52,16 @@
 
     <!-- Charts row: trend + pie side by side -->
     <el-row :gutter="16" style="margin-top: 16px">
-      <el-col :span="12" :xs="24">
-        <el-card shadow="hover">
+      <el-col :span="14" :xs="24">
+        <el-card shadow="hover" class="chart-card">
           <template #header>{{ zhCN.dashboard.monthlyTrend }}</template>
-          <div ref="trendRef" style="height: 200px"></div>
+          <div ref="trendRef" style="height: 280px"></div>
         </el-card>
       </el-col>
-      <el-col :span="12" :xs="24">
-        <el-card shadow="hover">
+      <el-col :span="10" :xs="24">
+        <el-card shadow="hover" class="chart-card">
           <template #header>{{ zhCN.dashboard.categoryBreakdown }}</template>
-          <div ref="chartRef" style="height: 200px"></div>
+          <div ref="chartRef" style="height: 280px"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -198,22 +198,33 @@ onBeforeUnmount(() => {
 function renderChart() {
   if (!chartRef.value) return
   chartInstance = echarts.init(chartRef.value)
-  const palette = ['#4f46e5','#7c3aed','#06b6d4','#059669','#d97706','#dc2626','#ec4899','#6366f1','#0ea5e9','#10b981']
-  const textColor = isDark.value ? '#e2e8f0' : '#334155'
+  const palette = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#a78bfa','#0ea5e9','#34d399']
+  const textColor = isDark.value ? '#94a3b8' : '#64748b'
   chartInstance.setOption({
-    tooltip: { trigger: 'item', confine: true },
-    legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 12, color: textColor } },
+    tooltip: {
+      trigger: 'item',
+      confine: true,
+      backgroundColor: isDark.value ? '#1e293b' : '#fff',
+      borderColor: isDark.value ? '#334155' : '#e2e8f0',
+      textStyle: { color: isDark.value ? '#e2e8f0' : '#1e293b', fontSize: 13 },
+      formatter: (p: any) => `<b>${p.name}</b><br/>${p.value.toFixed(2)} · ${p.percent}%`,
+    },
+    legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 12, color: textColor }, itemWidth: 12, itemHeight: 12, itemGap: 14 },
     series: [{
       type: 'pie',
-      radius: ['45%', '72%'],
-      center: ['50%', '45%'],
-      itemStyle: { borderRadius: 6, borderColor: isDark.value ? '#1e293b' : '#fff', borderWidth: 2 },
+      radius: ['42%', '72%'],
+      center: ['50%', '44%'],
+      itemStyle: { borderRadius: 8, borderColor: isDark.value ? 'rgba(255,255,255,.04)' : '#fff', borderWidth: 3 },
       data: stats.value.map((s: any, i: number) => ({
         name: s.category_name,
         value: s.total_amount,
         itemStyle: { color: s.color || palette[i % palette.length] },
       })),
-      label: { fontSize: 12, color: textColor },
+      label: { show: false },
+      emphasis: {
+        scaleSize: 6,
+        itemStyle: { shadowBlur: 16, shadowColor: 'rgba(99,102,241,.25)' },
+      },
     }],
   })
   window.addEventListener('resize', resizeHandler)
@@ -223,33 +234,58 @@ function renderTrend() {
   if (!trendRef.value || !trend.value.length) return
   trendChart = echarts.init(trendRef.value)
   const textColor = isDark.value ? '#94a3b8' : '#64748b'
-  const splitColor = isDark.value ? '#1e293b' : '#f1f5f9'
+  const gridColor = isDark.value ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'
+
   trendChart.setOption({
-    tooltip: { trigger: 'axis', confine: true },
+    tooltip: {
+      trigger: 'axis',
+      confine: true,
+      backgroundColor: isDark.value ? '#1e293b' : '#fff',
+      borderColor: isDark.value ? '#334155' : '#e2e8f0',
+      textStyle: { color: isDark.value ? '#e2e8f0' : '#1e293b', fontSize: 13 },
+      axisPointer: { type: 'cross', crossStyle: { color: 'transparent' } },
+    },
     xAxis: {
       type: 'category',
       data: trend.value.map((t: any) => t.month.slice(5)),
-      axisLabel: { fontSize: 12, color: textColor },
-      axisLine: { lineStyle: { color: isDark.value ? '#334155' : '#e2e8f0' } },
+      axisLabel: { fontSize: 12, color: textColor, margin: 12 },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      boundaryGap: false,
     },
     yAxis: {
       type: 'value',
       axisLabel: { fontSize: 12, color: textColor },
-      splitLine: { lineStyle: { color: splitColor } },
+      splitLine: { lineStyle: { color: gridColor, type: 'dashed' } },
+      axisLine: { show: false },
+      axisTick: { show: false },
     },
     series: [{
-      type: 'bar',
+      type: 'line',
       data: trend.value.map((t: any) => t.total),
+      smooth: 0.4,
+      symbol: 'circle',
+      symbolSize: 8,
+      showSymbol: trend.value.length <= 12,
+      lineStyle: { width: 3, color: '#6366f1', cap: 'round' },
       itemStyle: {
-        borderRadius: [6, 6, 0, 0],
+        color: '#6366f1',
+        borderColor: isDark.value ? '#151c2c' : '#fff',
+        borderWidth: 2,
+      },
+      areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: '#818cf8' },
-          { offset: 1, color: '#4f46e5' },
+          { offset: 0, color: 'rgba(99,102,241,.28)' },
+          { offset: 0.6, color: 'rgba(99,102,241,.08)' },
+          { offset: 1, color: 'rgba(99,102,241,.01)' },
         ]),
       },
-      barWidth: '40%',
+      emphasis: {
+        focus: 'series',
+        itemStyle: { shadowBlur: 12, shadowColor: 'rgba(99,102,241,.4)' },
+      },
     }],
-    grid: { left: 60, right: 20, top: 20, bottom: 30 },
+    grid: { left: 56, right: 20, top: 16, bottom: 32 },
   })
 }
 
@@ -365,6 +401,9 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
   box-shadow: 0 1px 2px rgba(0,0,0,.05);
 }
 .expiring-chip-name { font-weight: 600; color: #1e293b; }
+
+/* Chart cards */
+.chart-card { border-radius: 16px !important; }
 
 /* Subscription cards */
 .sub-cards .el-col { margin-bottom: 16px; }

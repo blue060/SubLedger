@@ -136,13 +136,22 @@ function renderTrend() {
       backgroundColor: isDark.value ? '#1e293b' : '#fff',
       borderColor: isDark.value ? '#334155' : '#e2e8f0',
       textStyle: { color: isDark.value ? '#e2e8f0' : '#1e293b', fontSize: 13 },
+      axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(99,102,241,.06)' } },
     },
-    legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 12, color: textColor }, itemWidth: 12, itemHeight: 12, itemGap: 16 },
+    legend: {
+      bottom: 0,
+      type: 'scroll',
+      textStyle: { fontSize: 12, color: textColor },
+      itemWidth: 12,
+      itemHeight: 12,
+      itemGap: 16,
+      icon: 'roundRect',
+    },
     xAxis: {
       type: 'category',
       data: trend.value.map((m: any) => m.month.slice(5)),
-      axisLabel: { fontSize: 12, color: textColor },
-      axisLine: { lineStyle: { color: gridColor } },
+      axisLabel: { fontSize: 12, color: textColor, margin: 12 },
+      axisLine: { show: false },
       axisTick: { show: false },
     },
     yAxis: {
@@ -157,18 +166,21 @@ function renderTrend() {
       type: 'bar',
       stack: 'total',
       data: trend.value.map((m: any) => m.categories[cat] || 0),
-      itemStyle: { color: palette[i % palette.length], borderRadius: i === catList.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0] },
-      barWidth: '45%',
-      emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(99,102,241,.3)' } },
+      itemStyle: {
+        color: palette[i % palette.length],
+        borderRadius: i === catList.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0],
+      },
+      barWidth: '40%',
+      emphasis: { itemStyle: { shadowBlur: 8, shadowColor: 'rgba(99,102,241,.2)' } },
     })),
-    grid: { left: 60, right: 20, top: 20, bottom: 50 },
+    grid: { left: 56, right: 20, top: 16, bottom: 50 },
   })
 }
 
 function renderCurrency() {
   if (!currencyRef.value || !currencyData.value.length) return
   currencyChart = echarts.init(currencyRef.value)
-  const textColor = isDark.value ? '#e2e8f0' : '#334155'
+  const textColor = isDark.value ? '#94a3b8' : '#64748b'
 
   currencyChart.setOption({
     tooltip: {
@@ -177,22 +189,32 @@ function renderCurrency() {
       backgroundColor: isDark.value ? '#1e293b' : '#fff',
       borderColor: isDark.value ? '#334155' : '#e2e8f0',
       textStyle: { color: isDark.value ? '#e2e8f0' : '#1e293b', fontSize: 13 },
+      formatter: (p: any) => `<b>${p.name}</b><br/>${p.value.toFixed(2)} · ${p.percent}%`,
     },
     series: [{
       type: 'pie',
-      radius: ['45%', '72%'],
-      center: ['50%', '45%'],
+      radius: ['42%', '72%'],
+      center: ['50%', '44%'],
       itemStyle: { borderRadius: 8, borderColor: isDark.value ? 'rgba(255,255,255,.04)' : '#fff', borderWidth: 3 },
       data: currencyData.value.map((c: any, i: number) => ({
         name: `${c.currency} (${c.count})`,
         value: c.converted_amount,
         itemStyle: { color: palette[i % palette.length] },
       })),
-      label: { fontSize: 12, color: textColor, formatter: '{b}\n{d}%' },
-      labelLine: { length: 12, length2: 8 },
-      emphasis: { itemStyle: { shadowBlur: 16, shadowColor: 'rgba(99,102,241,.25)' } },
+      label: { show: false },
+      emphasis: {
+        scaleSize: 6,
+        itemStyle: { shadowBlur: 16, shadowColor: 'rgba(99,102,241,.25)' },
+      },
     }],
-    legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 12, color: textColor }, itemWidth: 12, itemHeight: 12 },
+    legend: {
+      bottom: 0,
+      type: 'scroll',
+      textStyle: { fontSize: 12, color: textColor },
+      itemWidth: 12,
+      itemHeight: 12,
+      icon: 'roundRect',
+    },
   })
 }
 </script>
