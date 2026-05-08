@@ -75,7 +75,7 @@ async function handleLogin() {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: #0a0e1a;
+  background: #eef2ff;
   position: relative;
   overflow: hidden;
 }
@@ -85,7 +85,7 @@ async function handleLogin() {
   width: 600px;
   height: 600px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(99,102,241,.3), transparent 70%);
+  background: radial-gradient(circle, rgba(99,102,241,.15), transparent 70%);
   top: -200px;
   left: -100px;
   animation: float1 8s ease-in-out infinite;
@@ -96,7 +96,7 @@ async function handleLogin() {
   width: 500px;
   height: 500px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(139,92,246,.2), transparent 70%);
+  background: radial-gradient(circle, rgba(139,92,246,.1), transparent 70%);
   bottom: -150px;
   right: -100px;
   animation: float2 10s ease-in-out infinite;
@@ -114,12 +114,12 @@ async function handleLogin() {
   z-index: 1;
   width: 420px;
   padding: 48px 40px 36px;
-  background: rgba(255,255,255,.85);
+  background: rgba(255,255,255,.92);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,.3);
+  border: 1px solid rgba(255,255,255,.5);
   border-radius: 24px;
-  box-shadow: 0 24px 48px rgba(0,0,0,.2);
+  box-shadow: 0 16px 40px rgba(99,102,241,.1);
   text-align: center;
 }
 html.dark .login-card {

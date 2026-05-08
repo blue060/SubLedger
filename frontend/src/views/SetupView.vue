@@ -60,7 +60,7 @@ async function handleSetup() {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: #0a0e1a;
+  background: #eef2ff;
   position: relative;
   overflow: hidden;
 }
@@ -70,7 +70,7 @@ async function handleSetup() {
   width: 600px;
   height: 600px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(99,102,241,.3), transparent 70%);
+  background: radial-gradient(circle, rgba(99,102,241,.15), transparent 70%);
   top: -200px;
   left: -100px;
   animation: sfloat 8s ease-in-out infinite;

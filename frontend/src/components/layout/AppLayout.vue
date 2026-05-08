@@ -134,10 +134,10 @@ async function handleLogout() {
 <style scoped>
 .app-layout { min-height: 100vh; }
 .app-aside {
-  background: linear-gradient(180deg, #0f0d23 0%, #1a1145 50%, #1e1b4b 100%);
+  background: linear-gradient(180deg, #2e1065 0%, #3730a3 50%, #4338ca 100%);
   transition: width .3s ease;
   overflow: hidden;
-  box-shadow: 2px 0 16px rgba(0,0,0,.3);
+  box-shadow: 2px 0 12px rgba(0,0,0,.12);
 }
 .logo {
   height: 64px;
