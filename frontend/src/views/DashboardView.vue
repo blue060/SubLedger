@@ -172,7 +172,7 @@ onMounted(async () => {
     getDashboardStats().catch(() => ({ data: [] })),
     getDashboardCalendar().catch(() => ({ data: [] })),
     getDashboardExpiring().catch(() => ({ data: [] })),
-    listSubscriptions({ is_active: true }).catch(() => ({ data: [] })),
+    listSubscriptions({ is_active: true, is_expired: false }).catch(() => ({ data: [] })),
     getDashboardTrend().catch(() => ({ data: [] })),
     getDashboardBudget().catch(() => ({ data: {} })),
   ])

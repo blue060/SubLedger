@@ -160,6 +160,8 @@ async def check_upcoming_subscriptions(db: Session) -> None:
 
         await notifier.send(notification, settings, db)
 
+    start_date = today - timedelta(days=reminder_days)
+
     # Check expiring subscriptions
     expiring_subs = (
         db.query(Subscription)
@@ -168,7 +170,7 @@ async def check_upcoming_subscriptions(db: Session) -> None:
             Subscription.notify == True,
             Subscription.auto_renew == False,
             Subscription.expiry_date != None,
-            Subscription.expiry_date >= today,
+            Subscription.expiry_date >= start_date,
             Subscription.expiry_date <= end_date,
         )
         .all()
@@ -188,7 +190,12 @@ async def check_upcoming_subscriptions(db: Session) -> None:
             continue
 
         remaining = (sub.expiry_date - today).days
-        message = f"{sub.name} 将于 {sub.expiry_date} 到期（剩余 {remaining} 天）"
+        if remaining > 0:
+            message = f"{sub.name} 将于 {sub.expiry_date} 到期（剩余 {remaining} 天）"
+        elif remaining == 0:
+            message = f"{sub.name} 今天到期"
+        else:
+            message = f"{sub.name} 已于 {sub.expiry_date} 到期（已过期 {abs(remaining)} 天）"
 
         notification = Notification(
             subscription_id=sub.id,

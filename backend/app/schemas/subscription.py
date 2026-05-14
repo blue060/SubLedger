@@ -4,6 +4,8 @@ from datetime import date
 
 VALID_CURRENCIES = {"CNY", "USD", "EUR", "GBP", "JPY", "HKD", "AUD", "CAD", "SGD", "KRW", "THB", "MYR", "IDR", "PHP", "VND", "TWD", "INR", "RUB", "BRL", "MXN", "ZAR", "NZD", "CHF", "SEK", "NOK", "DKK"}
 VALID_CYCLES = {"monthly", "quarterly", "yearly", "once", "permanent", "custom"}
+RECURRING_CYCLES = {"monthly", "quarterly", "yearly", "custom"}
+EXPIRY_REQUIRED_MESSAGE = "关闭自动续费的周期订阅必须填写到期日期"
 
 
 class SubscriptionCreate(BaseModel):
@@ -36,6 +38,8 @@ class SubscriptionCreate(BaseModel):
         if self.billing_cycle == "custom":
             if not self.billing_cycle_num or not self.billing_cycle_unit:
                 raise ValueError("自定义周期需要填写周期数和周期单位")
+        if self.billing_cycle in RECURRING_CYCLES and not self.auto_renew and self.expiry_date is None:
+            raise ValueError(EXPIRY_REQUIRED_MESSAGE)
         if self.intro_amount is not None and self.intro_months is None:
             raise ValueError("设置优惠价格时需同时填写优惠月数")
         if self.intro_months is not None and self.intro_amount is None:

@@ -1,18 +1,24 @@
 import logging
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Subscription, Category, PriceHistory, Tag
-from app.schemas.subscription import SubscriptionCreate, SubscriptionUpdate, SubscriptionOut
+from app.schemas.subscription import SubscriptionCreate, SubscriptionUpdate, SubscriptionOut, RECURRING_CYCLES, EXPIRY_REQUIRED_MESSAGE
 from app.schemas.price_history import PriceHistoryOut
 from app.services.billing import calculate_next_payment_date
 
 logger = logging.getLogger("subledger")
 
 router = APIRouter(prefix="/api/subscriptions", tags=["订阅"], dependencies=[Depends(get_current_user)])
+
+
+def _validate_expiry_rule(billing_cycle: str, auto_renew: bool, expiry_date: date | None) -> None:
+    if billing_cycle in RECURRING_CYCLES and not auto_renew and expiry_date is None:
+        raise HTTPException(status_code=400, detail=EXPIRY_REQUIRED_MESSAGE)
 
 
 def _sub_to_out(sub: Subscription) -> SubscriptionOut:
@@ -35,6 +41,7 @@ def list_subscriptions(
     search: str | None = None,
     category_id: int | None = None,
     currency: str | None = None,
+    is_expired: bool | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=0, ge=0, le=100),
     db: Session = Depends(get_db),
@@ -48,6 +55,10 @@ def list_subscriptions(
         q = q.filter(Subscription.category_id == category_id)
     if currency:
         q = q.filter(Subscription.currency == currency)
+    if is_expired is True:
+        q = q.filter(Subscription.expiry_date != None, Subscription.expiry_date < date.today())
+    elif is_expired is False:
+        q = q.filter(or_(Subscription.expiry_date == None, Subscription.expiry_date >= date.today()))
     q = q.order_by(Subscription.next_payment_date.asc().nulls_last())
     if page_size > 0:
         q = q.offset((page - 1) * page_size).limit(page_size)
@@ -60,6 +71,8 @@ def create_subscription(body: SubscriptionCreate, db: Session = Depends(get_db))
         cat = db.query(Category).filter(Category.id == body.category_id).first()
         if not cat:
             raise HTTPException(status_code=400, detail="分类不存在")
+
+    _validate_expiry_rule(body.billing_cycle, body.auto_renew, body.expiry_date)
 
     next_date = calculate_next_payment_date(
         body.first_payment_date, body.billing_cycle,
@@ -103,6 +116,11 @@ def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session) -> S
     for nullable_key in ("billing_cycle_num", "billing_cycle_unit"):
         if nullable_key in update_data and update_data[nullable_key] is None:
             del update_data[nullable_key]
+
+    effective_billing_cycle = update_data.get("billing_cycle", sub.billing_cycle)
+    effective_auto_renew = update_data.get("auto_renew", sub.auto_renew)
+    effective_expiry_date = update_data.get("expiry_date", sub.expiry_date)
+    _validate_expiry_rule(effective_billing_cycle, effective_auto_renew, effective_expiry_date)
 
     if "amount" in update_data or "currency" in update_data:
         old_amount = sub.amount

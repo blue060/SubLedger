@@ -24,6 +24,13 @@
         <el-option label="JPY" value="JPY" />
         <el-option label="HKD" value="HKD" />
       </el-select>
+      <el-select v-model="filterStatus" :placeholder="zhCN.subscription.status" clearable style="width: 120px" @change="fetchList">
+        <el-option :label="zhCN.subscription.filterAll" :value="null" />
+        <el-option :label="zhCN.subscription.statusActive" value="active" />
+        <el-option :label="zhCN.subscription.statusInactive" value="inactive" />
+        <el-option :label="zhCN.subscription.statusUnexpired" value="unexpired" />
+        <el-option :label="zhCN.subscription.statusExpired" value="expired" />
+      </el-select>
       <div v-if="selectedIds.length" class="batch-actions">
         <span class="selected-info">{{ zhCN.subscription.selected.replace('{count}', String(selectedIds.length)) }}</span>
         <el-button size="small" type="success" @click="handleBatchToggle(true)">{{ zhCN.subscription.batchEnable }}</el-button>
@@ -129,7 +136,7 @@
         </el-form-item>
         <el-form-item :label="zhCN.subscription.notes"><el-input v-model="form.notes" type="textarea" :rows="2" /></el-form-item>
         <el-form-item :label="zhCN.subscription.url"><el-input v-model="form.url" placeholder="https://..." /></el-form-item>
-        <el-form-item :label="zhCN.subscription.expiryDate"><el-date-picker v-model="form.expiry_date" type="date" value-format="YYYY-MM-DD" clearable /></el-form-item>
+        <el-form-item :label="zhCN.subscription.expiryDate" prop="expiry_date"><el-date-picker v-model="form.expiry_date" type="date" value-format="YYYY-MM-DD" clearable /></el-form-item>
         <el-form-item :label="zhCN.subscription.paymentMethod"><el-input v-model="form.payment_method" placeholder="如：招商银行信用卡" /></el-form-item>
 
         <!-- Intro pricing -->
@@ -243,6 +250,7 @@ function debouncedFetchList() {
 }
 const filterCategory = ref<number | null>(null)
 const filterCurrency = ref<string | null>(null)
+const filterStatus = ref<string | null>(null)
 const selectedIds = ref<number[]>([])
 const showBatchCategory = ref(false)
 const batchCategoryId = ref<number | null>(null)
@@ -256,6 +264,7 @@ const formRules = reactive<FormRules>({
   name: [{ required: true, message: zhCN.subscription.nameRequired, trigger: 'blur' }],
   amount: [{ required: true, message: zhCN.subscription.amountRequired, trigger: 'blur' }],
   first_payment_date: [{ required: true, message: zhCN.subscription.firstPaymentRequired, trigger: 'change' }],
+  expiry_date: [{ validator: validateExpiryDate, trigger: 'change' }],
 })
 
 const hasExpiring = computed(() => subscriptionStore.subscriptions.some((s: any) => s.remaining_days != null))
@@ -273,6 +282,15 @@ const defaultForm = {
 const form = reactive({ ...defaultForm })
 const tags = ref<any[]>([])
 
+function validateExpiryDate(_rule: any, value: string | null, callback: (error?: Error) => void) {
+  const recurring = ['monthly', 'quarterly', 'yearly', 'custom'].includes(form.billing_cycle)
+  if (recurring && !form.auto_renew && !value) {
+    callback(new Error(zhCN.subscription.expiryRequiredForNonRenew))
+    return
+  }
+  callback()
+}
+
 onMounted(async () => {
   await Promise.all([fetchList(), categoryStore.fetchList()])
   const tagRes = await listTags()
@@ -284,6 +302,10 @@ async function fetchList() {
   if (searchText.value) params.search = searchText.value
   if (filterCategory.value != null) params.category_id = filterCategory.value
   if (filterCurrency.value) params.currency = filterCurrency.value
+  if (filterStatus.value === 'active') params.is_active = true
+  if (filterStatus.value === 'inactive') params.is_active = false
+  if (filterStatus.value === 'unexpired') params.is_expired = false
+  if (filterStatus.value === 'expired') params.is_expired = true
   await subscriptionStore.fetchList(params)
 }
 
