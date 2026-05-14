@@ -81,6 +81,8 @@ export const zhCN = {
     statusInactive: '已停用',
     statusUnexpired: '未过期',
     statusExpired: '已过期',
+    tabUnexpired: '未过期订阅',
+    tabExpired: '已过期订阅',
     expiryRequiredForNonRenew: '关闭自动续费的周期订阅必须填写到期日期',
     deleteConfirm: '确定删除此订阅吗？',
     batchDeleteConfirm: '确定删除选中的 {count} 个订阅吗？',

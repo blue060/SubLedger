@@ -37,7 +37,7 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="设置不存在")
 
     update_data = body.model_dump(exclude_unset=True)
-    if update_data.get("smtp_password") is None:
+    if "smtp_password" in update_data and update_data["smtp_password"] is None:
         del update_data["smtp_password"]
     for key, value in update_data.items():
         setattr(settings, key, value)

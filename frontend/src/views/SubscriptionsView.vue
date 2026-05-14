@@ -8,6 +8,12 @@
       </div>
     </div>
 
+    <!-- Expiry tabs -->
+    <el-tabs v-model="expiryTab" class="expiry-tabs" @tab-change="handleExpiryTabChange">
+      <el-tab-pane :label="zhCN.subscription.tabUnexpired" name="unexpired" />
+      <el-tab-pane :label="zhCN.subscription.tabExpired" name="expired" />
+    </el-tabs>
+
     <!-- Filters -->
     <div class="filter-bar">
       <el-input v-model="searchText" :placeholder="zhCN.common.search" clearable style="width: 200px" @input="debouncedFetchList" />
@@ -28,8 +34,6 @@
         <el-option :label="zhCN.subscription.filterAll" :value="null" />
         <el-option :label="zhCN.subscription.statusActive" value="active" />
         <el-option :label="zhCN.subscription.statusInactive" value="inactive" />
-        <el-option :label="zhCN.subscription.statusUnexpired" value="unexpired" />
-        <el-option :label="zhCN.subscription.statusExpired" value="expired" />
       </el-select>
       <div v-if="selectedIds.length" class="batch-actions">
         <span class="selected-info">{{ zhCN.subscription.selected.replace('{count}', String(selectedIds.length)) }}</span>
@@ -251,6 +255,7 @@ function debouncedFetchList() {
 const filterCategory = ref<number | null>(null)
 const filterCurrency = ref<string | null>(null)
 const filterStatus = ref<string | null>(null)
+const expiryTab = ref<'unexpired' | 'expired'>('unexpired')
 const selectedIds = ref<number[]>([])
 const showBatchCategory = ref(false)
 const batchCategoryId = ref<number | null>(null)
@@ -304,9 +309,13 @@ async function fetchList() {
   if (filterCurrency.value) params.currency = filterCurrency.value
   if (filterStatus.value === 'active') params.is_active = true
   if (filterStatus.value === 'inactive') params.is_active = false
-  if (filterStatus.value === 'unexpired') params.is_expired = false
-  if (filterStatus.value === 'expired') params.is_expired = true
+  params.is_expired = expiryTab.value === 'expired'
   await subscriptionStore.fetchList(params)
+}
+
+async function handleExpiryTabChange() {
+  selectedIds.value = []
+  await fetchList()
 }
 
 function handleSelectionChange(rows: Subscription[]) {
@@ -467,6 +476,7 @@ function renderPriceChart() {
 
 <style scoped>
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.expiry-tabs { margin-bottom: 8px; }
 .template-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-height: 400px; overflow-y: auto; }
 .template-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e4e7ed; border-radius: 12px; cursor: pointer; transition: all .2s ease; }
 .template-item:hover { border-color: var(--primary, #6366f1); background: var(--primary-bg, #f5f3ff); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.15); }

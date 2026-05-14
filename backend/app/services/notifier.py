@@ -23,7 +23,12 @@ class Notifier:
                 )
                 notification.sent_email = True
             except Exception:
-                pass
+                logger.exception(
+                    "邮件通知发送失败: notification_id=%s subscription_id=%s smtp_host=%s",
+                    notification.id,
+                    notification.subscription_id,
+                    settings.smtp_host,
+                )
 
         if settings.bark_url:
             try:
@@ -34,7 +39,11 @@ class Notifier:
                 )
                 notification.sent_push = True
             except Exception:
-                pass
+                logger.exception(
+                    "Bark 推送发送失败: notification_id=%s subscription_id=%s",
+                    notification.id,
+                    notification.subscription_id,
+                )
 
         elif settings.serverchan_key:
             try:
@@ -45,7 +54,11 @@ class Notifier:
                 )
                 notification.sent_push = True
             except Exception:
-                pass
+                logger.exception(
+                    "Server酱推送发送失败: notification_id=%s subscription_id=%s",
+                    notification.id,
+                    notification.subscription_id,
+                )
 
         if settings.webhook_url:
             try:
@@ -57,7 +70,11 @@ class Notifier:
                 )
                 notification.sent_webhook = True
             except Exception:
-                pass
+                logger.exception(
+                    "Webhook 通知发送失败: notification_id=%s subscription_id=%s",
+                    notification.id,
+                    notification.subscription_id,
+                )
 
         db.commit()
 
@@ -144,6 +161,8 @@ async def check_upcoming_subscriptions(db: Session) -> None:
             .first()
         )
         if existing:
+            if settings.smtp_host and not existing.sent_email:
+                await notifier.send(existing, settings, db)
             continue
 
         currency_symbols = {"CNY": "¥", "USD": "$", "EUR": "€", "GBP": "£", "JPY": "¥", "HKD": "$"}
@@ -187,6 +206,8 @@ async def check_upcoming_subscriptions(db: Session) -> None:
             .first()
         )
         if existing:
+            if settings.smtp_host and not existing.sent_email:
+                await notifier.send(existing, settings, db)
             continue
 
         remaining = (sub.expiry_date - today).days
