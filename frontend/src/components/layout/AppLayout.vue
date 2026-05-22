@@ -1,17 +1,25 @@
 <template>
-  <el-container class="app-layout" :class="{ dark: isDark }">
-    <el-aside :width="isCollapsed ? '64px' : '220px'" class="app-aside">
+  <el-container class="app-layout" :class="{ dark: isDark, 'is-mobile': isMobile }">
+    <!-- Mobile overlay -->
+    <div v-if="isMobile && mobileMenuOpen" class="mobile-overlay" @click="mobileMenuOpen = false" />
+
+    <el-aside
+      :width="asideWidth"
+      class="app-aside"
+      :class="{ 'mobile-open': isMobile && mobileMenuOpen }"
+    >
       <div class="logo">
         <div class="logo-icon">S</div>
-        <span v-if="!isCollapsed" class="logo-text">SubLedger</span>
+        <span v-if="!asideCollapsed" class="logo-text">SubLedger</span>
       </div>
       <el-menu
         :default-active="activeMenu"
-        :collapse="isCollapsed"
+        :collapse="asideCollapsed && !isMobile"
         background-color="transparent"
         text-color="rgba(255,255,255,.65)"
         active-text-color="#fff"
         router
+        @select="onMenuSelect"
       >
         <el-menu-item index="/dashboard">
           <el-icon><Monitor /></el-icon>
@@ -28,6 +36,10 @@
         <el-menu-item index="/analytics">
           <el-icon><TrendCharts /></el-icon>
           <span>{{ zhCN.nav.analytics }}</span>
+        </el-menu-item>
+        <el-menu-item index="/annual-report">
+          <el-icon><DataLine /></el-icon>
+          <span>{{ zhCN.nav.annualReport }}</span>
         </el-menu-item>
         <el-menu-item index="/calendar">
           <el-icon><Calendar /></el-icon>
@@ -49,11 +61,15 @@
     </el-aside>
     <el-container>
       <el-header class="app-header">
-        <el-button :icon="isCollapsed ? Expand : Fold" text @click="isCollapsed = !isCollapsed" />
+        <el-button
+          :icon="isMobile ? (mobileMenuOpen ? Fold : Expand) : (isCollapsed ? Expand : Fold)"
+          text
+          @click="toggleSidebar"
+        />
         <div class="header-right">
           <el-button :icon="Search" text @click="showSearch = true" />
           <el-button :icon="isDark ? Sunny : Moon" text @click="toggleTheme" />
-          <span class="username">{{ authStore.username }}</span>
+          <span v-if="!isMobile" class="username">{{ authStore.username }}</span>
           <el-button text @click="handleLogout">{{ zhCN.auth.logout }}</el-button>
         </div>
       </el-header>
@@ -68,15 +84,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon, Wallet, TrendCharts, Search } from '@element-plus/icons-vue'
+import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon, Wallet, TrendCharts, Search, DataLine } from '@element-plus/icons-vue'
 import { useAuthStore } from '../../stores/auth'
 import { zhCN } from '../../locales/zh-CN'
 import api from '../../composables/useApi'
 import { getUnreadCount } from '../../api/notifications'
+import { initBrowserNotifications } from '../../composables/useBrowserNotify'
 import GlobalSearch from '../GlobalSearch.vue'
 
 const isCollapsed = ref(false)
 const isDark = ref(false)
+const isMobile = ref(false)
+const mobileMenuOpen = ref(false)
 const unreadCount = ref(0)
 const showSearch = ref(false)
 const route = useRoute()
@@ -84,6 +103,28 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const activeMenu = computed(() => route.path)
+const asideCollapsed = computed(() => isMobile.value ? false : isCollapsed.value)
+const asideWidth = computed(() => {
+  if (isMobile.value) return mobileMenuOpen.value ? '220px' : '0px'
+  return isCollapsed.value ? '64px' : '220px'
+})
+
+function toggleSidebar() {
+  if (isMobile.value) {
+    mobileMenuOpen.value = !mobileMenuOpen.value
+  } else {
+    isCollapsed.value = !isCollapsed.value
+  }
+}
+
+function onMenuSelect() {
+  if (isMobile.value) mobileMenuOpen.value = false
+}
+
+function checkMobile() {
+  isMobile.value = window.innerWidth < 768
+  if (!isMobile.value) mobileMenuOpen.value = false
+}
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -96,6 +137,7 @@ async function fetchUnreadCount() {
 
 onMounted(async () => {
   authStore.checkAuth()
+  checkMobile()
   const saved = localStorage.getItem('subledger_theme')
   if (saved === 'dark') {
     isDark.value = true
@@ -103,6 +145,8 @@ onMounted(async () => {
   }
   fetchUnreadCount()
   pollTimer = setInterval(fetchUnreadCount, 60000)
+  initBrowserNotifications()
+  window.addEventListener('resize', checkMobile)
 })
 
 function handleKeydown(e: KeyboardEvent) {
@@ -116,6 +160,7 @@ onMounted(() => window.addEventListener('keydown', handleKeydown))
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('resize', checkMobile)
 })
 
 function toggleTheme() {
@@ -214,6 +259,30 @@ async function handleLogout() {
   padding: 24px;
   background: var(--bg, #f8fafc);
   transition: background-color .3s;
+}
+
+/* Mobile */
+.mobile-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 99;
+  transition: opacity .3s;
+}
+.is-mobile .app-aside {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+  width: 0;
+  overflow: hidden;
+}
+.is-mobile .app-aside.mobile-open {
+  width: 220px;
+}
+.is-mobile .el-main {
+  padding: 16px;
 }
 
 /* Dark */

@@ -15,3 +15,7 @@ export function getTopSubscriptions(limit = 10) {
 export function getCurrencyBreakdown() {
   return api.get('/analytics/currency-breakdown')
 }
+
+export function getAnnualReport(year?: number) {
+  return api.get('/analytics/annual-report', { params: year ? { year } : {} })
+}

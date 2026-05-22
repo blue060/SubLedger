@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Subscription, Category, AppSettings
-from app.schemas.analytics import MonthlyComparison, CategoryTrendItem, TopSubscription, CurrencyBreakdownItem
+from app.schemas.analytics import MonthlyComparison, CategoryTrendItem, TopSubscription, CurrencyBreakdownItem, AnnualReport
 from app.services.exchange_rate import exchange_rate_service
 from app.services.billing import calculate_monthly_projection, _effective_amount
 
@@ -165,3 +165,73 @@ async def currency_breakdown(db: Session = Depends(get_db)):
 
     result.sort(key=lambda x: x.converted_amount, reverse=True)
     return result
+
+
+@router.get("/annual-report", response_model=AnnualReport)
+async def annual_report(year: int = Query(default=date.today().year, ge=2020, le=2030), db: Session = Depends(get_db)):
+    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    preferred = settings.preferred_currency if settings else "CNY"
+
+    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
+    categories = db.query(Category).all()
+    cat_map = {c.id: c for c in categories}
+
+    monthly_totals = []
+    grand_total = 0.0
+
+    for month in range(1, 13):
+        target = date(year, month, 1)
+        month_total = 0.0
+        for sub in subscriptions:
+            proj = calculate_monthly_projection(sub, target)
+            if proj is None:
+                continue
+            converted = await exchange_rate_service.convert(db, proj, sub.currency, preferred)
+            month_total += converted
+        monthly_totals.append({"month": f"{year}-{month:02d}", "total": round(month_total, 2)})
+        grand_total += month_total
+
+    # Category totals based on current month projection annualized
+    cat_totals: dict[str, dict] = {}
+    for sub in subscriptions:
+        current_month = date.today().replace(day=1)
+        proj = calculate_monthly_projection(sub, current_month)
+        if proj is None:
+            continue
+        converted = await exchange_rate_service.convert(db, proj, sub.currency, preferred)
+        annualized = converted * 12
+        cat_name = cat_map[sub.category_id].name if sub.category_id and sub.category_id in cat_map else "未分类"
+        cat_color = cat_map[sub.category_id].color if sub.category_id and sub.category_id in cat_map else "#909399"
+        if cat_name not in cat_totals:
+            cat_totals[cat_name] = {"total": 0.0, "color": cat_color}
+        cat_totals[cat_name]["total"] += annualized
+
+    # Top subscriptions by annual cost
+    sub_items = []
+    for sub in subscriptions:
+        current_month = date.today().replace(day=1)
+        proj = calculate_monthly_projection(sub, current_month)
+        if proj is not None:
+            annual = await exchange_rate_service.convert(db, proj * 12, sub.currency, preferred)
+        else:
+            annual = await exchange_rate_service.convert(db, sub.amount, sub.currency, preferred)
+        cat = cat_map.get(sub.category_id) if sub.category_id else None
+        sub_items.append({
+            "id": sub.id,
+            "name": sub.name,
+            "annual_cost": round(annual, 2),
+            "currency": preferred,
+            "category_name": cat.name if cat else None,
+            "category_color": cat.color if cat else None,
+        })
+    sub_items.sort(key=lambda x: x["annual_cost"], reverse=True)
+
+    return AnnualReport(
+        year=year,
+        total=round(grand_total, 2),
+        currency=preferred,
+        monthly_totals=monthly_totals,
+        category_totals=[{"name": k, "total": round(v["total"], 2), "color": v["color"]} for k, v in cat_totals.items()],
+        top_subscriptions=sub_items[:10],
+        subscription_count=len(subscriptions),
+    )

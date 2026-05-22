@@ -29,7 +29,14 @@
             <el-tag v-if="n.sent_push" size="small" type="info" class="status-tag">{{ zhCN.notification.pushSent }}</el-tag>
           </div>
         </div>
-        <div style="display: flex; gap: 4px; flex-shrink: 0">
+        <div class="notification-actions">
+          <template v-if="n.message.includes('扣款')">
+            <el-button size="small" type="primary" @click="handleKeepRenewal(n)">{{ zhCN.notification.keepRenewal }}</el-button>
+            <el-button size="small" type="danger" plain @click="handleCancelRenewal(n)">{{ zhCN.notification.cancelRenewal }}</el-button>
+          </template>
+          <template v-else-if="n.message.includes('到期')">
+            <el-button size="small" @click="goToSubscription(n.subscription_id)">{{ zhCN.notification.viewSubscription }}</el-button>
+          </template>
           <el-button v-if="!n.is_read" size="small" text @click="handleMarkRead(n.id)">{{ zhCN.notification.markRead }}</el-button>
           <el-button size="small" text type="danger" @click="handleDelete(n.id)">{{ zhCN.common.delete }}</el-button>
         </div>
@@ -53,6 +60,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listNotifications, markRead, markAllRead, deleteNotification, deleteReadNotifications } from '../api/notifications'
+import { updateSubscription } from '../api/subscriptions'
 import { zhCN } from '../locales/zh-CN'
 
 const router = useRouter()
@@ -101,6 +109,23 @@ async function handleDeleteRead() {
   ElMessage.success(zhCN.common.success)
 }
 
+async function handleKeepRenewal(n: any) {
+  await handleMarkRead(n.id)
+}
+
+async function handleCancelRenewal(n: any) {
+  try {
+    await ElMessageBox.confirm(
+      zhCN.dashboard.cancelRenewalConfirm.replace('{name}', n.message.split(' ')[0]),
+      zhCN.common.confirm,
+      { type: 'warning' }
+    )
+    await updateSubscription(n.subscription_id, { is_active: false })
+    await handleMarkRead(n.id)
+    ElMessage.success(zhCN.common.success)
+  } catch {}
+}
+
 function goToSubscription(subscriptionId: number) {
   router.push({ path: '/subscriptions', query: { highlight: String(subscriptionId) } })
 }
@@ -140,5 +165,12 @@ function goToSubscription(subscriptionId: number) {
 }
 .status-tag {
   font-size: 11px;
+}
+.notification-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 </style>

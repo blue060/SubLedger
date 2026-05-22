@@ -37,6 +37,7 @@ export const zhCN = {
     notifications: '通知中心',
     settings: '系统设置',
     calendar: '扣款日历',
+    annualReport: '年度报告',
   },
   subscription: {
     title: '订阅管理',
@@ -128,6 +129,10 @@ export const zhCN = {
     permanentPurchase: '一次性买断',
     permanentLabel: '永久',
     viewAll: '查看全部',
+    renewalConfirm: '待确认续费',
+    keepRenewal: '保留',
+    cancelRenewal: '不再续费',
+    cancelRenewalConfirm: '确定不再续费 {name} 吗？订阅将被停用。',
   },
   calendar: {
     title: '扣款日历',
@@ -169,6 +174,8 @@ export const zhCN = {
     testPushSent: '测试推送已发送',
     sendFailed: '发送失败',
     webhookUrl: 'Webhook URL',
+    wechatWebhookUrl: '企业微信 Webhook',
+    wechatWebhookPlaceholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...',
     backupSection: '自动备份',
     triggerBackup: '立即备份',
     downloadBackup: '下载',
@@ -190,6 +197,9 @@ export const zhCN = {
     filterUnread: '未读',
     emailSent: '已发邮件',
     pushSent: '已推送',
+    keepRenewal: '保留',
+    cancelRenewal: '不再续费',
+    viewSubscription: '查看订阅',
   },
   payment: {
     title: '付款记录',
@@ -219,6 +229,15 @@ export const zhCN = {
     lastMonth: '上月',
     monthlyCost: '月均',
     yearlyCost: '年费用',
+  },
+  annualReport: {
+    title: '年度报告',
+    totalSpending: '年度总支出',
+    avgMonthly: '月均支出',
+    subCount: '活跃订阅数',
+    monthlyTrend: '月度支出',
+    categoryBreakdown: '分类占比',
+    topSubscriptions: '订阅排行',
   },
   tag: {
     title: '标签管理',

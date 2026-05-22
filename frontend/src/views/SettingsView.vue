@@ -117,6 +117,9 @@
         <el-form-item :label="zhCN.settings.webhookUrl">
           <el-input v-model="settingsForm.webhook_url" placeholder="https://your-webhook.example.com/hook" />
         </el-form-item>
+        <el-form-item :label="zhCN.settings.wechatWebhookUrl">
+          <el-input v-model="settingsForm.wechat_webhook_url" :placeholder="zhCN.settings.wechatWebhookPlaceholder" />
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSaveSettings">{{ zhCN.common.save }}</el-button>
           <el-button @click="handleTestPush">{{ zhCN.settings.testPush }}</el-button>
@@ -181,6 +184,7 @@ const settingsForm = reactive({
   bark_url: null as string | null,
   serverchan_key: null as string | null,
   webhook_url: null as string | null,
+  wechat_webhook_url: null as string | null,
 })
 
 const categoryDialogVisible = ref(false)

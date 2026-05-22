@@ -27,6 +27,7 @@ def get_settings(db: Session = Depends(get_db)):
         bark_url=settings.bark_url,
         serverchan_key=settings.serverchan_key,
         webhook_url=settings.webhook_url,
+        wechat_webhook_url=settings.wechat_webhook_url,
     )
 
 
@@ -56,6 +57,7 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
         bark_url=settings.bark_url,
         serverchan_key=settings.serverchan_key,
         webhook_url=settings.webhook_url,
+        wechat_webhook_url=settings.wechat_webhook_url,
     )
 
 
@@ -106,6 +108,8 @@ async def test_push(db: Session = Depends(get_db)):
         await notifier.send_bark("SubLedger 测试", "如果您收到此推送，说明 Bark 配置成功！", settings.bark_url)
     elif settings.serverchan_key:
         await notifier.send_serverchan("SubLedger 测试", "如果您收到此推送，说明 Server酱 配置成功！", settings.serverchan_key)
+    elif settings.wechat_webhook_url:
+        await notifier.send_wechat_webhook("SubLedger 测试", "如果您收到此推送，说明企业微信配置成功！", settings.wechat_webhook_url)
     else:
         raise HTTPException(status_code=400, detail="未配置推送渠道")
 

@@ -14,6 +14,7 @@ class SettingsOut(BaseModel):
     bark_url: Optional[str] = None
     serverchan_key: Optional[str] = None
     webhook_url: Optional[str] = None
+    wechat_webhook_url: Optional[str] = None
 
 
 class SettingsUpdate(BaseModel):
@@ -29,6 +30,7 @@ class SettingsUpdate(BaseModel):
     bark_url: Optional[str] = None
     serverchan_key: Optional[str] = None
     webhook_url: Optional[str] = None
+    wechat_webhook_url: Optional[str] = None
 
 
 class PasswordChange(BaseModel):

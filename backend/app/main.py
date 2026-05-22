@@ -31,6 +31,7 @@ MIGRATIONS = [
     ("app_settings", "webhook_url", "VARCHAR(500)"),
     ("notifications", "sent_webhook", "BOOLEAN DEFAULT 0 NOT NULL"),
     ("subscriptions", "auto_renew", "BOOLEAN DEFAULT 1 NOT NULL"),
+    ("app_settings", "wechat_webhook_url", "VARCHAR(500)"),
 ]
 
 DEFAULT_CATEGORIES = [

@@ -60,6 +60,21 @@ class Notifier:
                     notification.subscription_id,
                 )
 
+        elif settings.wechat_webhook_url:
+            try:
+                await self.send_wechat_webhook(
+                    title="SubLedger 订阅提醒",
+                    body=notification.message,
+                    webhook_url=settings.wechat_webhook_url,
+                )
+                notification.sent_push = True
+            except Exception:
+                logger.exception(
+                    "企业微信推送发送失败: notification_id=%s subscription_id=%s",
+                    notification.id,
+                    notification.subscription_id,
+                )
+
         if settings.webhook_url:
             try:
                 await self.send_webhook(
@@ -125,6 +140,13 @@ class Notifier:
                 "subscription_id": subscription_id,
                 "source": "SubLedger",
             })
+
+    async def send_wechat_webhook(self, title: str, body: str, webhook_url: str) -> None:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                webhook_url,
+                json={"msgtype": "text", "text": {"content": f"{title}\n{body}"}},
+            )
 
 
 notifier = Notifier()

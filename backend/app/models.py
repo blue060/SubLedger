@@ -105,6 +105,7 @@ class AppSettings(Base):
     monthly_budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     theme: Mapped[str] = mapped_column(String(10), default="light")
     webhook_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    wechat_webhook_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 

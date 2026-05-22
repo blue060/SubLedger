@@ -50,6 +50,28 @@
       </span>
     </div>
 
+    <!-- Renewal confirmation -->
+    <el-card v-if="pendingRenewals.length" shadow="hover" class="renewal-card">
+      <template #header>
+        <div class="renewal-header">
+          <span>{{ zhCN.dashboard.renewalConfirm }}</span>
+          <el-tag type="warning" size="small">{{ pendingRenewals.length }}</el-tag>
+        </div>
+      </template>
+      <div class="renewal-list">
+        <div v-for="item in pendingRenewals" :key="item.id" class="renewal-item">
+          <div class="renewal-info">
+            <span class="renewal-name">{{ item.name }}</span>
+            <span class="renewal-detail">{{ item.currency }} {{ item.amount.toFixed(2) }} · {{ item.next_payment_date }}</span>
+          </div>
+          <div class="renewal-actions">
+            <el-button size="small" type="primary" @click="confirmRenewal(item)">{{ zhCN.dashboard.keepRenewal }}</el-button>
+            <el-button size="small" type="danger" plain @click="cancelRenewal(item)">{{ zhCN.dashboard.cancelRenewal }}</el-button>
+          </div>
+        </div>
+      </div>
+    </el-card>
+
     <!-- Charts row: trend + pie side by side -->
     <el-row :gutter="16" style="margin-top: 16px">
       <el-col :span="14" :xs="24">
@@ -133,9 +155,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import { getDashboardSummary, getDashboardStats, getDashboardCalendar, getDashboardExpiring, getDashboardTrend, getDashboardBudget } from '../api/dashboard'
-import { listSubscriptions } from '../api/subscriptions'
+import { listSubscriptions, updateSubscription } from '../api/subscriptions'
 import { zhCN } from '../locales/zh-CN'
 import { formatCurrency } from '../utils/format'
 import ServiceIcon from '../components/ServiceIcon.vue'
@@ -154,6 +177,38 @@ let chartInstance: echarts.ECharts | null = null
 let trendChart: echarts.ECharts | null = null
 
 const activeCount = computed(() => zhCN.dashboard.activeCount.replace('{count}', String(subscriptions.value.length)))
+
+const pendingRenewals = computed(() => {
+  const confirmed = JSON.parse(localStorage.getItem('subledger_renewal_confirmed') || '[]')
+  return subscriptions.value
+    .filter((s: any) =>
+      s.auto_renew &&
+      s.next_payment_date &&
+      !confirmed.includes(`${s.id}_${s.next_payment_date}`)
+    )
+    .map((s: any) => ({ ...s, daysUntil: daysUntil(s.next_payment_date) }))
+    .filter((s: any) => s.daysUntil >= 0 && s.daysUntil <= 7)
+    .sort((a: any, b: any) => a.daysUntil - b.daysUntil)
+})
+
+function confirmRenewal(item: any) {
+  const confirmed = JSON.parse(localStorage.getItem('subledger_renewal_confirmed') || '[]')
+  confirmed.push(`${item.id}_${item.next_payment_date}`)
+  localStorage.setItem('subledger_renewal_confirmed', JSON.stringify(confirmed))
+}
+
+async function cancelRenewal(item: any) {
+  try {
+    await ElMessageBox.confirm(
+      zhCN.dashboard.cancelRenewalConfirm.replace('{name}', item.name),
+      zhCN.common.confirm,
+      { type: 'warning' }
+    )
+    await updateSubscription(item.id, { is_active: false })
+    subscriptions.value = subscriptions.value.filter((s: any) => s.id !== item.id)
+    ElMessage.success(zhCN.common.success)
+  } catch {}
+}
 
 function daysUntil(dateStr: string) {
   const d = new Date(dateStr)
@@ -405,6 +460,21 @@ function cycleLabel(cycle: string, num?: number, unit?: string) {
 
 /* Chart cards */
 .chart-card { border-radius: 16px !important; }
+
+/* Renewal confirmation card */
+.renewal-card { border-radius: 16px !important; margin-bottom: 16px; border-left: 4px solid #f59e0b !important; }
+.renewal-header { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.renewal-list { display: flex; flex-direction: column; gap: 8px; }
+.renewal-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-radius: 10px;
+  background: var(--bg, #f8fafc); gap: 12px; flex-wrap: wrap;
+}
+html.dark .renewal-item { background: rgba(255,255,255,.04); }
+.renewal-info { display: flex; flex-direction: column; gap: 2px; }
+.renewal-name { font-weight: 600; font-size: 14px; color: var(--text-primary, #0f172a); }
+.renewal-detail { font-size: 13px; color: var(--text-muted, #94a3b8); }
+.renewal-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
 /* Subscription cards */
 .sub-cards .el-col { margin-bottom: 16px; }

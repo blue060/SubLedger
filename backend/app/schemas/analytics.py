@@ -29,3 +29,13 @@ class CurrencyBreakdownItem(BaseModel):
     count: int
     total_amount: float
     converted_amount: float
+
+
+class AnnualReport(BaseModel):
+    year: int
+    total: float
+    currency: str
+    monthly_totals: list[dict]
+    category_totals: list[dict]
+    top_subscriptions: list[dict]
+    subscription_count: int

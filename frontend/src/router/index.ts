@@ -23,6 +23,7 @@ const router = createRouter({
         { path: 'subscriptions', name: 'Subscriptions', component: () => import('../views/SubscriptionsView.vue') },
         { path: 'payments', name: 'Payments', component: () => import('../views/PaymentsView.vue') },
         { path: 'analytics', name: 'Analytics', component: () => import('../views/AnalyticsView.vue') },
+        { path: 'annual-report', name: 'AnnualReport', component: () => import('../views/AnnualReportView.vue') },
         { path: 'calendar', name: 'Calendar', component: () => import('../views/CalendarView.vue') },
         { path: 'notifications', name: 'Notifications', component: () => import('../views/NotificationsView.vue') },
         { path: 'settings', name: 'Settings', component: () => import('../views/SettingsView.vue') },
