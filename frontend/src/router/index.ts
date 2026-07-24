@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getMe } from '../api/auth'
+import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -22,6 +22,7 @@ const router = createRouter({
         { path: 'dashboard', name: 'Dashboard', component: () => import('../views/DashboardView.vue') },
         { path: 'subscriptions', name: 'Subscriptions', component: () => import('../views/SubscriptionsView.vue') },
         { path: 'payments', name: 'Payments', component: () => import('../views/PaymentsView.vue') },
+        { path: 'infrastructure', name: 'Infrastructure', component: () => import('../views/InfrastructureView.vue') },
         { path: 'analytics', name: 'Analytics', component: () => import('../views/AnalyticsView.vue') },
         { path: 'annual-report', name: 'AnnualReport', component: () => import('../views/AnnualReportView.vue') },
         { path: 'calendar', name: 'Calendar', component: () => import('../views/CalendarView.vue') },
@@ -38,12 +39,10 @@ router.beforeEach(async (to, _from, next) => {
   if (publicPaths.includes(to.path)) {
     return next()
   }
-  try {
-    await getMe()
-    next()
-  } catch {
-    next('/login')
-  }
+  const authStore = useAuthStore()
+  const authenticated = await authStore.checkAuth()
+  if (authenticated) next()
+  else next('/login')
 })
 
 export default router

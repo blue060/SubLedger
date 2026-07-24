@@ -2,7 +2,7 @@ import logging
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -10,6 +10,7 @@ from app.models import Subscription, Category, PriceHistory, Tag
 from app.schemas.subscription import SubscriptionCreate, SubscriptionUpdate, SubscriptionOut, RECURRING_CYCLES, EXPIRY_REQUIRED_MESSAGE
 from app.schemas.price_history import PriceHistoryOut
 from app.services.billing import calculate_next_payment_date
+from app.services.payment_sync import sync_due_payments
 
 logger = logging.getLogger("subledger")
 
@@ -46,7 +47,8 @@ def list_subscriptions(
     page_size: int = Query(default=0, ge=0, le=100),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Subscription)
+    sync_due_payments(db)
+    q = db.query(Subscription).options(selectinload(Subscription.tags))
     if is_active is not None:
         q = q.filter(Subscription.is_active == is_active)
     if search:
@@ -86,6 +88,8 @@ def create_subscription(body: SubscriptionCreate, db: Session = Depends(get_db))
         sub.tags = db.query(Tag).filter(Tag.id.in_(body.tag_ids)).all()
     db.add(sub)
     db.commit()
+    db.refresh(sub)
+    sync_due_payments(db)
     db.refresh(sub)
     return _sub_to_out(sub)
 
@@ -150,6 +154,8 @@ def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session) -> S
         )
 
     db.commit()
+    db.refresh(sub)
+    sync_due_payments(db)
     db.refresh(sub)
     return sub
 

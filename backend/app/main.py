@@ -9,9 +9,10 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import Base, engine, SessionLocal
-from app.models import User, Category, Notification, Subscription, AppSettings, PaymentRecord, Tag, BackupRecord
-from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, tags, backups, search, analytics
+from app.models import User, Category, Notification, Subscription, AppSettings, PaymentRecord, Tag, BackupRecord, Server, DeployedService
+from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, tags, backups, search, analytics, infrastructure
 from app.services.scheduler import start_scheduler, stop_scheduler
+from app.services.payment_sync import sync_due_payments
 
 logger = logging.getLogger("subledger")
 
@@ -39,12 +40,11 @@ DEFAULT_CATEGORIES = [
     {"name": "音乐", "icon": "Headset", "color": "#67C23A", "sort_order": 1},
     {"name": "云存储", "icon": "Cloudy", "color": "#E6A23C", "sort_order": 2},
     {"name": "会员", "icon": "User", "color": "#F56C6C", "sort_order": 3},
-    {"name": "工具", "icon": "Setting", "color": "#909399", "sort_order": 4},
-    {"name": "游戏", "icon": "GamePad", "color": "#C0C4FC", "sort_order": 5},
-    {"name": "其他", "icon": "More", "color": "#DCDFE6", "sort_order": 6},
-    {"name": "AI工具", "icon": "MagicStick", "color": "#9B59B6", "sort_order": 7},
-    {"name": "开发工具", "icon": "Cpu", "color": "#1ABC9C", "sort_order": 8},
-    {"name": "云服务", "icon": "Cloudy", "color": "#3498DB", "sort_order": 9},
+    {"name": "游戏", "icon": "GamePad", "color": "#C0C4FC", "sort_order": 4},
+    {"name": "AI工具", "icon": "MagicStick", "color": "#9B59B6", "sort_order": 5},
+    {"name": "云服务", "icon": "Cloudy", "color": "#3498DB", "sort_order": 6},
+    {"name": "域名", "icon": "Connection", "color": "#14B8A6", "sort_order": 7},
+    {"name": "其他", "icon": "More", "color": "#DCDFE6", "sort_order": 8},
 ]
 
 
@@ -55,6 +55,18 @@ def migrate_database():
             if column not in existing:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
                 logger.info(f"自动迁移: {table}.{column} 已添加")
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_payment_records_subscription_date "
+            "ON payment_records (subscription_id, payment_date)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_payment_records_status_date "
+            "ON payment_records (status, payment_date)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_subscriptions_billing_sync "
+            "ON subscriptions (is_active, auto_renew, billing_cycle, next_payment_date)"
+        ))
         conn.commit()
 
 
@@ -93,6 +105,47 @@ def seed_database():
         db.close()
 
 
+def migrate_categories():
+    """Apply the revised built-in category set without losing subscriptions."""
+    db = SessionLocal()
+    try:
+        other = db.query(Category).filter(Category.name == "其他").order_by(Category.id).first()
+        if not other:
+            other = Category(name="其他", icon="More", color="#DCDFE6", sort_order=999)
+            db.add(other)
+            db.flush()
+
+        deprecated = db.query(Category).filter(Category.name.in_(["工具", "开发工具"])).all()
+        for category in deprecated:
+            db.query(Subscription).filter(Subscription.category_id == category.id).update(
+                {Subscription.category_id: other.id}, synchronize_session=False
+            )
+            db.delete(category)
+
+        domain = db.query(Category).filter(Category.name == "域名").order_by(Category.id).first()
+        if not domain:
+            current_max = max((row[0] or 0 for row in db.query(Category.sort_order).all()), default=0)
+            domain = Category(name="域名", icon="Connection", color="#14B8A6", sort_order=current_max + 1)
+            db.add(domain)
+            db.flush()
+
+        max_order = max((row[0] or 0 for row in db.query(Category.sort_order).filter(Category.id != other.id).all()), default=0)
+        other.sort_order = max_order + 1
+        db.commit()
+        if deprecated:
+            logger.info("分类迁移完成: 已移除工具/开发工具并将其订阅归入其他")
+    finally:
+        db.close()
+
+
+def sync_payments_on_startup():
+    db = SessionLocal()
+    try:
+        sync_due_payments(db)
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -100,6 +153,8 @@ async def lifespan(app: FastAPI):
     migrate_database()
     migrate_auto_renew()
     seed_database()
+    migrate_categories()
+    sync_payments_on_startup()
     start_scheduler()
     logger.info("SubLedger 启动完成")
     yield
@@ -132,6 +187,7 @@ app.include_router(tags.router)
 app.include_router(backups.router)
 app.include_router(search.router)
 app.include_router(analytics.router)
+app.include_router(infrastructure.router)
 
 # Static files & SPA fallback
 static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static")

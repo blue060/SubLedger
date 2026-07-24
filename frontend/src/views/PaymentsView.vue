@@ -7,13 +7,13 @@
 
     <!-- Filters -->
     <div class="filter-bar">
-      <el-date-picker v-model="dateRange" type="daterange" :start-placeholder="zhCN.payment.filterByDate" :end-placeholder="zhCN.payment.filterByDate" value-format="YYYY-MM-DD" style="width: 260px" @change="fetchList" />
-      <el-select v-model="filterStatus" :placeholder="zhCN.payment.filterByStatus" clearable style="width: 130px" @change="fetchList">
+      <el-date-picker v-model="dateRange" type="daterange" :start-placeholder="zhCN.payment.filterByDate" :end-placeholder="zhCN.payment.filterByDate" value-format="YYYY-MM-DD" style="width: 260px" @change="handleFilterChange" />
+      <el-select v-model="filterStatus" :placeholder="zhCN.payment.filterByStatus" clearable style="width: 130px" @change="handleFilterChange">
         <el-option :label="zhCN.payment.pending" value="pending" />
         <el-option :label="zhCN.payment.confirmed" value="confirmed" />
         <el-option :label="zhCN.payment.skipped" value="skipped" />
       </el-select>
-      <el-select v-model="filterSub" :placeholder="zhCN.payment.filterBySub" clearable style="width: 180px" @change="fetchList">
+      <el-select v-model="filterSub" :placeholder="zhCN.payment.filterBySub" clearable style="width: 180px" @change="handleFilterChange">
         <el-option v-for="s in subscriptions" :key="s.id" :label="s.name" :value="s.id" />
       </el-select>
     </div>
@@ -33,8 +33,8 @@
       <el-table-column label="" width="200" fixed="right">
         <template #default="{ row }">
           <template v-if="row.status === 'pending'">
-            <el-button size="small" type="success" @click="handleConfirm(row.id)">{{ zhCN.payment.confirmPayment }}</el-button>
-            <el-button size="small" @click="handleSkip(row.id)">{{ zhCN.payment.skipPayment }}</el-button>
+            <el-button size="small" type="success" :loading="actionId === row.id" @click="handleConfirm(row.id)">{{ zhCN.payment.confirmPayment }}</el-button>
+            <el-button size="small" :disabled="actionId === row.id" @click="handleSkip(row.id)">{{ zhCN.payment.skipPayment }}</el-button>
           </template>
           <el-button size="small" type="danger" @click="handleDelete(row.id)">{{ zhCN.common.delete }}</el-button>
         </template>
@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listPayments, createPayment, confirmPayment, skipPayment, deletePayment } from '../api/payments'
 import { listSubscriptions } from '../api/subscriptions'
@@ -81,6 +81,7 @@ const records = ref<any[]>([])
 const subscriptions = ref<any[]>([])
 const loading = ref(false)
 const total = ref(0)
+const actionId = ref<number | null>(null)
 const page = ref(1)
 const pageSize = 20
 
@@ -89,7 +90,7 @@ const filterStatus = ref<string | null>(null)
 const filterSub = ref<number | null>(null)
 
 const showAddDialog = ref(false)
-const addForm = reactive({ subscription_id: null as number | null, amount: 0, payment_date: '', notes: '' })
+const addForm = reactive({ subscription_id: null as number | null, amount: 0, currency: 'CNY', payment_date: '', notes: '' })
 
 onMounted(async () => {
   const subsRes = await listSubscriptions({ is_active: true })
@@ -109,9 +110,15 @@ async function fetchList() {
     if (filterSub.value) params.subscription_id = filterSub.value
     const res = await listPayments(params)
     records.value = res.data
+    total.value = Number(res.headers['x-total-count'] || res.data.length)
   } finally {
     loading.value = false
   }
+}
+
+function handleFilterChange() {
+  page.value = 1
+  fetchList()
 }
 
 function statusType(status: string) {
@@ -124,15 +131,25 @@ function statusLabel(status: string) {
 }
 
 async function handleConfirm(id: number) {
-  await confirmPayment(id)
-  ElMessage.success(zhCN.common.success)
-  fetchList()
+  actionId.value = id
+  try {
+    await confirmPayment(id)
+    ElMessage.success(zhCN.common.success)
+    await fetchList()
+  } finally {
+    actionId.value = null
+  }
 }
 
 async function handleSkip(id: number) {
-  await skipPayment(id)
-  ElMessage.success(zhCN.common.success)
-  fetchList()
+  actionId.value = id
+  try {
+    await skipPayment(id)
+    ElMessage.success(zhCN.common.success)
+    await fetchList()
+  } finally {
+    actionId.value = null
+  }
 }
 
 async function handleDelete(id: number) {
@@ -147,15 +164,24 @@ async function handleAdd() {
     ElMessage.warning(zhCN.common.error)
     return
   }
-  await createPayment({ ...addForm, currency: 'CNY', status: 'confirmed' })
+  await createPayment({ ...addForm, status: 'confirmed' })
   ElMessage.success(zhCN.common.success)
   showAddDialog.value = false
   addForm.subscription_id = null
   addForm.amount = 0
+  addForm.currency = 'CNY'
   addForm.payment_date = ''
   addForm.notes = ''
-  fetchList()
+  await fetchList()
 }
+
+watch(() => addForm.subscription_id, (id) => {
+  const subscription = subscriptions.value.find(item => item.id === id)
+  if (subscription) {
+    addForm.amount = subscription.amount
+    addForm.currency = subscription.currency
+  }
+})
 </script>
 
 <style scoped>

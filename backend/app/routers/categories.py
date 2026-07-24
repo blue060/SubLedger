@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, status
+from sqlalchemy import case
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -12,7 +13,11 @@ router = APIRouter(prefix="/api/categories", tags=["分类"], dependencies=[Depe
 
 @router.get("", response_model=list[CategoryOut])
 def list_categories(db: Session = Depends(get_db)):
-    return db.query(Category).order_by(Category.sort_order).all()
+    return db.query(Category).order_by(
+        case((Category.name == "其他", 1), else_=0),
+        Category.sort_order,
+        Category.id,
+    ).all()
 
 
 @router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)

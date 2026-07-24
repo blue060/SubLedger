@@ -2,6 +2,28 @@ from dateutil.relativedelta import relativedelta
 from datetime import date
 
 
+RECURRING_CYCLES = ("monthly", "quarterly", "yearly", "custom")
+
+
+def get_billing_delta(
+    billing_cycle: str,
+    billing_cycle_num: int = 1,
+    billing_cycle_unit: str = "month",
+):
+    """Return the calendar delta for a recurring billing cycle."""
+    if billing_cycle == "monthly":
+        return relativedelta(months=1)
+    if billing_cycle == "quarterly":
+        return relativedelta(months=3)
+    if billing_cycle == "yearly":
+        return relativedelta(years=1)
+    if billing_cycle == "custom":
+        if billing_cycle_unit == "year":
+            return relativedelta(years=billing_cycle_num)
+        return relativedelta(months=billing_cycle_num)
+    raise ValueError(f"未知的计费周期: {billing_cycle}")
+
+
 def calculate_next_payment_date(
     first_payment_date: date,
     billing_cycle: str,
@@ -17,20 +39,7 @@ def calculate_next_payment_date(
     if billing_cycle in ("once", "permanent"):
         return first_payment_date
 
-    # Built-in cycles
-    if billing_cycle == "monthly":
-        delta = relativedelta(months=1)
-    elif billing_cycle == "quarterly":
-        delta = relativedelta(months=3)
-    elif billing_cycle == "yearly":
-        delta = relativedelta(years=1)
-    elif billing_cycle == "custom":
-        if billing_cycle_unit == "year":
-            delta = relativedelta(years=billing_cycle_num)
-        else:
-            delta = relativedelta(months=billing_cycle_num)
-    else:
-        raise ValueError(f"未知的计费周期: {billing_cycle}")
+    delta = get_billing_delta(billing_cycle, billing_cycle_num, billing_cycle_unit)
 
     next_date = first_payment_date
     while next_date < reference_date:
@@ -48,8 +57,9 @@ def calculate_monthly_projection(
     next_pay = subscription.next_payment_date
 
     # Check if subscription has expired before this month
-    if subscription.expiry_date:
-        last_month = subscription.expiry_date.replace(day=1)
+    expiry_date = getattr(subscription, "expiry_date", None)
+    if expiry_date:
+        last_month = expiry_date.replace(day=1)
         if target_month > last_month:
             return None
 
@@ -62,22 +72,9 @@ def calculate_monthly_projection(
             return _effective_amount(subscription, first, target_month)
         return None
 
-    # Determine the cycle delta
-    if cycle == "monthly":
-        delta = relativedelta(months=1)
-    elif cycle == "quarterly":
-        delta = relativedelta(months=3)
-    elif cycle == "yearly":
-        delta = relativedelta(years=1)
-    elif cycle == "custom":
-        num = getattr(subscription, 'billing_cycle_num', 1) or 1
-        unit = getattr(subscription, 'billing_cycle_unit', 'month') or 'month'
-        if unit == "year":
-            delta = relativedelta(years=num)
-        else:
-            delta = relativedelta(months=num)
-    else:
-        raise ValueError(f"Unknown billing cycle: {cycle}")
+    num = getattr(subscription, 'billing_cycle_num', 1) or 1
+    unit = getattr(subscription, 'billing_cycle_unit', 'month') or 'month'
+    delta = get_billing_delta(cycle, num, unit)
 
     d = first
     while d < target_month.replace(day=1):

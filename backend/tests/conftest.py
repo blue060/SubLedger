@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base, get_db
 from app.security import hash_password
 from app.models import User, Category, Subscription, Notification, AppSettings
-from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data
+from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, infrastructure
 
 TEST_DB_URL = "sqlite:///./test_subledger.db"
 test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
@@ -39,6 +39,8 @@ def create_test_app():
     app.include_router(notifications.router)
     app.include_router(settings_router.router)
     app.include_router(data.router)
+    app.include_router(payments.router)
+    app.include_router(infrastructure.router)
     app.dependency_overrides[get_db] = override_get_db
     return app
 
@@ -53,6 +55,7 @@ def db():
     yield session
     session.close()
     Base.metadata.drop_all(bind=test_engine)
+    test_engine.dispose()
     try:
         if os.path.exists("test_subledger.db"):
             os.remove("test_subledger.db")

@@ -1,11 +1,12 @@
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import PaymentRecord, Subscription
 from app.schemas.payment import PaymentCreate, PaymentUpdate, PaymentOut
+from app.services.payment_sync import sync_due_payments
 
 router = APIRouter(prefix="/api/payments", tags=["付款记录"], dependencies=[Depends(get_current_user)])
 
@@ -19,6 +20,7 @@ def _record_to_out(record: PaymentRecord) -> PaymentOut:
 
 @router.get("", response_model=list[PaymentOut])
 def list_payments(
+    response: Response,
     subscription_id: int | None = None,
     status: str | None = None,
     start_date: date | None = None,
@@ -27,7 +29,8 @@ def list_payments(
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    q = db.query(PaymentRecord)
+    sync_due_payments(db)
+    q = db.query(PaymentRecord).options(joinedload(PaymentRecord.subscription))
     if subscription_id:
         q = q.filter(PaymentRecord.subscription_id == subscription_id)
     if status:
@@ -36,13 +39,16 @@ def list_payments(
         q = q.filter(PaymentRecord.payment_date >= start_date)
     if end_date:
         q = q.filter(PaymentRecord.payment_date <= end_date)
-    q = q.order_by(PaymentRecord.payment_date.desc())
+    total = q.count()
+    response.headers["X-Total-Count"] = str(total)
+    q = q.order_by(PaymentRecord.payment_date.desc(), PaymentRecord.id.desc())
     return [_record_to_out(r) for r in q.offset((page - 1) * page_size).limit(page_size).all()]
 
 
 @router.get("/pending", response_model=list[PaymentOut])
 def list_pending(db: Session = Depends(get_db)):
-    records = db.query(PaymentRecord).filter(
+    sync_due_payments(db)
+    records = db.query(PaymentRecord).options(joinedload(PaymentRecord.subscription)).filter(
         PaymentRecord.status == "pending"
     ).order_by(PaymentRecord.payment_date.asc()).all()
     return [_record_to_out(r) for r in records]
@@ -56,6 +62,8 @@ def create_payment(body: PaymentCreate, db: Session = Depends(get_db)):
     record = PaymentRecord(**body.model_dump())
     db.add(record)
     db.commit()
+    db.refresh(record)
+    sync_due_payments(db)
     db.refresh(record)
     return _record_to_out(record)
 

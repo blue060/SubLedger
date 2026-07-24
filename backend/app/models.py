@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Integer, String, Float, Boolean, Date, DateTime, Text, func, Table, Column
+from sqlalchemy import ForeignKey, Integer, String, Float, Boolean, Date, DateTime, Text, func, Table, Column, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -38,6 +38,9 @@ class Category(Base):
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
+    __table_args__ = (
+        Index("ix_subscriptions_billing_sync", "is_active", "auto_renew", "billing_cycle", "next_payment_date"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -124,6 +127,10 @@ class PriceHistory(Base):
 
 class PaymentRecord(Base):
     __tablename__ = "payment_records"
+    __table_args__ = (
+        Index("ix_payment_records_subscription_date", "subscription_id", "payment_date"),
+        Index("ix_payment_records_status_date", "status", "payment_date"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id"), nullable=False)
@@ -155,3 +162,49 @@ class BackupRecord(Base):
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class Server(Base):
+    """A physical server, VPS, NAS, or other deployment target."""
+
+    __tablename__ = "servers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    host: Mapped[str] = mapped_column(String(255), nullable=False)
+    provider: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    region: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    operating_system: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    ssh_port: Mapped[int] = mapped_column(Integer, default=22)
+    username: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+    services: Mapped[list["DeployedService"]] = relationship("DeployedService", back_populates="server")
+
+
+class DeployedService(Base):
+    """A deployed service and its public-domain to private-port mapping."""
+
+    __tablename__ = "deployed_services"
+    __table_args__ = (
+        Index("ix_deployed_services_server_id", "server_id"),
+        Index("ix_deployed_services_domain", "domain"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    domain: Mapped[str] = mapped_column(String(255), nullable=False)
+    server_id: Mapped[int] = mapped_column(Integer, ForeignKey("servers.id"), nullable=False)
+    protocol: Mapped[str] = mapped_column(String(10), default="https")
+    internal_host: Mapped[str] = mapped_column(String(255), default="127.0.0.1")
+    internal_port: Mapped[int] = mapped_column(Integer, nullable=False)
+    container_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+    server: Mapped["Server"] = relationship("Server", back_populates="services", lazy="joined")

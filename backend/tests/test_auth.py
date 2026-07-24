@@ -16,7 +16,7 @@ def test_login_success(client):
 def test_login_wrong_password(client):
     response = client.post("/api/auth/login", json={"password": "wrong"})
     assert response.status_code == 401
-    assert response.json()["detail"] == "密码错误"
+    assert response.json()["detail"] == "用户名或密码错误"
 
 
 def test_me_authenticated(auth_client):

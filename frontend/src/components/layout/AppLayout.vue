@@ -33,6 +33,10 @@
           <el-icon><Wallet /></el-icon>
           <span>{{ zhCN.nav.payments }}</span>
         </el-menu-item>
+        <el-menu-item index="/infrastructure">
+          <el-icon><Connection /></el-icon>
+          <span>{{ zhCN.nav.infrastructure }}</span>
+        </el-menu-item>
         <el-menu-item index="/analytics">
           <el-icon><TrendCharts /></el-icon>
           <span>{{ zhCN.nav.analytics }}</span>
@@ -84,7 +88,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon, Wallet, TrendCharts, Search, DataLine } from '@element-plus/icons-vue'
+import { Monitor, List, Bell, Setting, Calendar, Expand, Fold, Sunny, Moon, Wallet, TrendCharts, Search, DataLine, Connection } from '@element-plus/icons-vue'
 import { useAuthStore } from '../../stores/auth'
 import { zhCN } from '../../locales/zh-CN'
 import api from '../../composables/useApi'
@@ -136,7 +140,6 @@ async function fetchUnreadCount() {
 }
 
 onMounted(async () => {
-  authStore.checkAuth()
   checkMobile()
   const saved = localStorage.getItem('subledger_theme')
   if (saved === 'dark') {
