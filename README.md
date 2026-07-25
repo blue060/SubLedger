@@ -10,7 +10,6 @@
 - **通知提醒**：应用内提示、邮件（SMTP）、Bark 推送、Server酱推送
 - **数据导入导出**：CSV/JSON 导出，CSV 导入（列名映射）
 - **付款核对**：自动补齐已到期账期，生成待确认付款并推进下次扣款日
-- **系统管理**：记录多台服务器、域名、访问协议、内网地址与端口映射
 - **单用户认证**：静态密码 + JWT + CSRF 保护
 - **全中文界面**
 - **Docker 一键部署**
@@ -28,7 +27,7 @@ cd SubLedger
 2. 创建 `.env` 文件：
 ```bash
 cp .env.example .env
-# 编辑 .env，设置 ADMIN_PASSWORD
+# 编辑 .env：设置至少12位的 ADMIN_PASSWORD，并更换 SECRET_KEY
 ```
 
 3. 启动：
@@ -36,7 +35,14 @@ cp .env.example .env
 docker compose up -d
 ```
 
-4. 访问 http://localhost:8080
+4. 访问 http://localhost:8090
+
+首次启动时，后端会使用 `.env` 中的 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`
+创建管理员。公网网页初始化入口已禁用，未配置安全密码时服务会拒绝启动。
+管理员创建成功后，修改环境变量不会覆盖现有密码；密码可在登录后的系统设置中修改。
+生产环境还必须设置至少32个字符的随机 `SECRET_KEY`，可使用
+`openssl rand -hex 32` 生成。
+公网部署应通过 HTTPS 访问，并将 `COOKIE_SECURE` 设置为 `true`。
 
 ### 手动运行
 
@@ -45,7 +51,7 @@ docker compose up -d
 ```bash
 cd backend
 pip install -r requirements.txt
-export ADMIN_PASSWORD=your-password
+export ADMIN_PASSWORD=replace-with-a-strong-password
 uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
@@ -62,8 +68,10 @@ npm run build
 
 | 变量 | 必需 | 默认值 | 说明 |
 |------|------|--------|------|
-| `ADMIN_PASSWORD` | 是 | - | 管理员密码 |
-| `SECRET_KEY` | 否 | `change-me-in-production` | JWT 签名密钥 |
+| `ADMIN_USERNAME` | 首次启动 | `admin` | 初始管理员用户名 |
+| `ADMIN_PASSWORD` | 首次启动 | - | 初始管理员密码，至少12个字符；不会覆盖已有用户 |
+| `SECRET_KEY` | 生产环境必须 | - | JWT 签名密钥，至少32个随机字符 |
+| `COOKIE_SECURE` | 否 | `false` | 使用 HTTPS 时设为 `true`，仅通过安全连接发送登录 Cookie |
 | `ENV` | 否 | `production` | 运行环境 |
 | `DATABASE_URL` | 否 | `sqlite:///./data/subledger.db` | 数据库连接 |
 | `DEFAULT_CURRENCY` | 否 | `CNY` | 默认首选货币 |
@@ -90,7 +98,8 @@ npm run build
 # 后端
 cd backend
 pip install -r requirements.txt
-export ADMIN_PASSWORD=dev
+export ADMIN_PASSWORD=development-password
+export ENV=development
 uvicorn app.main:app --reload --port 8080
 
 # 前端

@@ -17,7 +17,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     await apiLogout()
-    localStorage.removeItem('subledger_token')
     isLoggedIn.value = false
     username.value = ''
     initialized.value = true

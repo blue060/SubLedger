@@ -35,7 +35,7 @@ class SettingsUpdate(BaseModel):
 
 class PasswordChange(BaseModel):
     old_password: str
-    new_password: str = Field(min_length=4)
+    new_password: str = Field(min_length=12)
 
 
 class ImportResult(BaseModel):

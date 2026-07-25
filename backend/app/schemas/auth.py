@@ -7,14 +7,8 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class SetupRequest(BaseModel):
-    username: str
-    password: str
-
-
 class LoginResponse(BaseModel):
     username: str
-    token: str
 
 
 class AuthStatus(BaseModel):

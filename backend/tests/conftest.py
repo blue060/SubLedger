@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base, get_db
 from app.security import hash_password
 from app.models import User, Category, Subscription, Notification, AppSettings
-from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, infrastructure
+from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments
 
 TEST_DB_URL = "sqlite:///./test_subledger.db"
 test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
@@ -40,7 +40,6 @@ def create_test_app():
     app.include_router(settings_router.router)
     app.include_router(data.router)
     app.include_router(payments.router)
-    app.include_router(infrastructure.router)
     app.dependency_overrides[get_db] = override_get_db
     return app
 
@@ -80,6 +79,9 @@ def client(db):
 def auth_client(client):
     response = client.post("/api/auth/login", json={"password": "testpassword"})
     assert response.status_code == 200
+    csrf_token = response.cookies.get("subledger_csrf")
+    if csrf_token:
+        client.headers["X-CSRF-Token"] = csrf_token
     return client
 
 

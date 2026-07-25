@@ -10,7 +10,8 @@ logger = logging.getLogger("subledger")
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> dict:
-    token = request.cookies.get("subledger_token")
+    cookie_token = request.cookies.get("subledger_token")
+    token = cookie_token
     auth_header = request.headers.get("Authorization", "")
     logger.debug(f"AUTH cookie={'yes' if token else 'no'} header={'yes' if auth_header.startswith('Bearer ') else 'no'} path={request.url.path}")
     if not token:
@@ -24,14 +25,10 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> dict:
         logger.warning(f"JWT decode failed: {type(e).__name__}: {e}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="认证已过期，请重新登录")
 
-    # CSRF check for mutating requests
-    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    # Cookie-authenticated mutations must always carry the matching CSRF token.
+    if cookie_token and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         csrf_header = request.headers.get("X-CSRF-Token", "")
-        csrf_cookie = request.cookies.get("subledger_csrf", "")
-        if not csrf_header and not csrf_cookie:
-            # No CSRF provided at all — allow for simplicity in self-hosted setup
-            pass
-        elif csrf_header and csrf_header != payload.get("csrf", ""):
+        if not csrf_header or csrf_header != payload.get("csrf", ""):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF 验证失败")
 
     return {"user_id": int(payload["sub"]), "csrf": payload.get("csrf", "")}

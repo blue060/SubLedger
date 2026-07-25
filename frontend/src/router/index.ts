@@ -10,11 +10,6 @@ const router = createRouter({
       component: () => import('../views/LoginView.vue'),
     },
     {
-      path: '/setup',
-      name: 'Setup',
-      component: () => import('../views/SetupView.vue'),
-    },
-    {
       path: '/',
       component: () => import('../components/layout/AppLayout.vue'),
       children: [
@@ -22,7 +17,6 @@ const router = createRouter({
         { path: 'dashboard', name: 'Dashboard', component: () => import('../views/DashboardView.vue') },
         { path: 'subscriptions', name: 'Subscriptions', component: () => import('../views/SubscriptionsView.vue') },
         { path: 'payments', name: 'Payments', component: () => import('../views/PaymentsView.vue') },
-        { path: 'infrastructure', name: 'Infrastructure', component: () => import('../views/InfrastructureView.vue') },
         { path: 'analytics', name: 'Analytics', component: () => import('../views/AnalyticsView.vue') },
         { path: 'annual-report', name: 'AnnualReport', component: () => import('../views/AnnualReportView.vue') },
         { path: 'calendar', name: 'Calendar', component: () => import('../views/CalendarView.vue') },
@@ -33,7 +27,7 @@ const router = createRouter({
   ],
 })
 
-const publicPaths = ['/login', '/setup']
+const publicPaths = ['/login']
 
 router.beforeEach(async (to, _from, next) => {
   if (publicPaths.includes(to.path)) {

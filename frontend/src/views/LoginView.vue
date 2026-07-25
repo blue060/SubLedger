@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../composables/useApi'
 import { zhCN } from '../locales/zh-CN'
@@ -43,22 +43,11 @@ const username = ref('')
 const password = ref('')
 const loading = ref(false)
 
-onMounted(async () => {
-  try {
-    const res = await api.get('/auth/setup-status')
-    if (res.data.needs_setup) {
-      window.location.href = '/setup'
-    }
-  } catch {}
-})
-
 async function handleLogin() {
   if (!username.value || !password.value) return
   loading.value = true
   try {
-    await api.post('/auth/login', { username: username.value, password: password.value }).then((res) => {
-      localStorage.setItem('subledger_token', res.data.token)
-    })
+    await api.post('/auth/login', { username: username.value, password: password.value })
     ElMessage.success(zhCN.auth.loginSuccess)
     window.location.href = '/dashboard'
   } catch (e: any) {

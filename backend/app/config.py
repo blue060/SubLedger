@@ -5,11 +5,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = ""
     SECRET_KEY: str = "subledger-default-secret-key-change-in-production-please"
     ENV: str = "production"
     DATABASE_URL: str = "sqlite:////data/subledger.db"
     JWT_EXPIRE_DAYS: int = 7
+    COOKIE_SECURE: bool = False
     EXCHANGE_RATE_API_KEY: str = ""
     EXCHANGE_RATE_CACHE_HOURS: int = 24
     SMTP_HOST: str | None = None

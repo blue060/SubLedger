@@ -11,6 +11,9 @@
         <el-form-item :label="zhCN.auth.newPassword">
           <el-input v-model="passwordForm.new_password" type="password" show-password />
         </el-form-item>
+        <el-form-item :label="zhCN.auth.confirmPassword">
+          <el-input v-model="passwordForm.confirm_password" type="password" show-password />
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleChangePassword">{{ zhCN.common.save }}</el-button>
         </el-form-item>
@@ -170,7 +173,7 @@ import { zhCN } from '../locales/zh-CN'
 const categoryStore = useCategoryStore()
 const categories = computed(() => categoryStore.categories)
 
-const passwordForm = reactive({ old_password: '', new_password: '' })
+const passwordForm = reactive({ old_password: '', new_password: '', confirm_password: '' })
 const settingsForm = reactive({
   preferred_currency: 'CNY',
   reminder_days: 7,
@@ -213,10 +216,19 @@ async function handleSaveSettings() {
 }
 
 async function handleChangePassword() {
+  if (passwordForm.new_password.length < 12) {
+    ElMessage.warning(zhCN.auth.passwordMinLength)
+    return
+  }
+  if (passwordForm.new_password !== passwordForm.confirm_password) {
+    ElMessage.warning(zhCN.auth.passwordMismatch)
+    return
+  }
   await changePassword(passwordForm.old_password, passwordForm.new_password)
   ElMessage.success(zhCN.settings.passwordChanged)
   passwordForm.old_password = ''
   passwordForm.new_password = ''
+  passwordForm.confirm_password = ''
 }
 
 async function handleTestEmail() {

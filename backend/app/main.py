@@ -3,16 +3,18 @@ import logging
 import os
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
 from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import Base, engine, SessionLocal
-from app.models import User, Category, Notification, Subscription, AppSettings, PaymentRecord, Tag, BackupRecord, Server, DeployedService
-from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, tags, backups, search, analytics, infrastructure
+from app.models import User, Category, Notification, Subscription, AppSettings, PaymentRecord, Tag, BackupRecord
+from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, tags, backups, search, analytics
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.payment_sync import sync_due_payments
+from app.services.admin_bootstrap import ensure_initial_admin, validate_runtime_secret
+from app.middleware.csrf import CSRFMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
 
 logger = logging.getLogger("subledger")
 
@@ -105,6 +107,17 @@ def seed_database():
         db.close()
 
 
+def initialize_admin_user():
+    db = SessionLocal()
+    try:
+        settings = get_settings()
+        validate_runtime_secret(settings.SECRET_KEY, settings.ENV)
+        if ensure_initial_admin(db, settings.ADMIN_USERNAME, settings.ADMIN_PASSWORD):
+            logger.info("已通过服务器环境变量创建初始管理员")
+    finally:
+        db.close()
+
+
 def migrate_categories():
     """Apply the revised built-in category set without losing subscriptions."""
     db = SessionLocal()
@@ -150,6 +163,7 @@ def sync_payments_on_startup():
 async def lifespan(app: FastAPI):
     # Startup
     Base.metadata.create_all(bind=engine)
+    initialize_admin_user()
     migrate_database()
     migrate_auto_renew()
     seed_database()
@@ -165,13 +179,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SubLedger", lifespan=lifespan, docs_url=None, redoc_url=None)
 
 # Middleware (order: last added = first executed)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CSRFMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 # Routers
 app.include_router(auth.router)
@@ -187,7 +196,6 @@ app.include_router(tags.router)
 app.include_router(backups.router)
 app.include_router(search.router)
 app.include_router(analytics.router)
-app.include_router(infrastructure.router)
 
 # Static files & SPA fallback
 static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static")

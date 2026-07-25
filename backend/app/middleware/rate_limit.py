@@ -33,17 +33,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         ]
         for ip in stale_ips:
             del self._requests[ip]
+        login_cutoff = now - self.login_window_seconds
+        stale_login_ips = [
+            ip for ip, timestamps in self._login_requests.items()
+            if not timestamps or timestamps[-1] < login_cutoff
+        ]
+        for ip in stale_login_ips:
+            del self._login_requests[ip]
 
     def _cleanup_login(self, ip: str, now: float):
         cutoff = now - self.login_window_seconds
         self._login_requests[ip] = [t for t in self._login_requests[ip] if t > cutoff]
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        if request.url.path.startswith("/api/health"):
+        if not request.url.path.startswith("/api/") or request.url.path.startswith("/api/health"):
             return await call_next(request)
 
         ip = request.client.host if request.client else "unknown"
         now = time()
+        self._global_cleanup(now)
 
         # Login-specific rate limit
         if request.url.path == "/api/auth/login":
@@ -58,7 +66,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         self._cleanup(ip, now)
-        self._global_cleanup(now)
 
         if len(self._requests[ip]) >= self.max_requests:
             return Response(

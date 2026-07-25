@@ -9,6 +9,7 @@ def test_login_success(client):
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "admin"
+    assert "token" not in data
     assert "subledger_token" in response.cookies
     assert "subledger_csrf" in response.cookies
 
@@ -17,6 +18,20 @@ def test_login_wrong_password(client):
     response = client.post("/api/auth/login", json={"password": "wrong"})
     assert response.status_code == 401
     assert response.json()["detail"] == "用户名或密码错误"
+
+
+def test_public_setup_endpoint_is_disabled(client):
+    response = client.post("/api/auth/setup", json={"username": "attacker", "password": "attacker-password"})
+    assert response.status_code == 404
+
+
+def test_cookie_authenticated_mutation_requires_csrf(client):
+    login_response = client.post("/api/auth/login", json={"password": "testpassword"})
+    assert login_response.status_code == 200
+
+    response = client.post("/api/categories", json={"name": "不应创建"})
+    assert response.status_code == 403
+    assert response.json()["detail"] == "CSRF 验证失败"
 
 
 def test_me_authenticated(auth_client):

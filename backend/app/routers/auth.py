@@ -2,30 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.config import get_settings
 from app.dependencies import get_current_user
 from app.models import User
-from app.schemas.auth import LoginRequest, LoginResponse, AuthStatus, SetupRequest
-from app.security import verify_password, create_access_token, generate_csrf_token, hash_password
+from app.schemas.auth import LoginRequest, LoginResponse, AuthStatus
+from app.security import verify_password, create_access_token, generate_csrf_token
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
-
-
-@router.get("/setup-status")
-def setup_status(db: Session = Depends(get_db)):
-    exists = db.query(User).count() > 0
-    return {"needs_setup": not exists}
-
-
-@router.post("/setup")
-def setup(body: SetupRequest, db: Session = Depends(get_db)):
-    if db.query(User).count() > 0:
-        raise HTTPException(status_code=400, detail="已初始化，不可重复设置")
-    if len(body.password) < 4:
-        raise HTTPException(status_code=400, detail="密码至少4个字符")
-    user = User(username=body.username, password_hash=hash_password(body.password))
-    db.add(user)
-    db.commit()
-    return {"detail": "初始化成功"}
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -36,12 +19,14 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
 
     csrf_token = generate_csrf_token()
     jwt_token = create_access_token(user.id, csrf_token)
+    cookie_secure = get_settings().COOKIE_SECURE
 
     response.set_cookie(
         key="subledger_token",
         value=jwt_token,
         httponly=True,
         samesite="lax",
+        secure=cookie_secure,
         max_age=7 * 24 * 3600,
     )
     response.set_cookie(
@@ -49,10 +34,11 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
         value=csrf_token,
         httponly=False,
         samesite="lax",
+        secure=cookie_secure,
         max_age=7 * 24 * 3600,
     )
 
-    return LoginResponse(username=user.username, token=jwt_token)
+    return LoginResponse(username=user.username)
 
 
 @router.post("/logout")
