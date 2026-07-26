@@ -24,11 +24,17 @@ git clone https://github.com/blue060/SubLedger.git
 cd SubLedger
 ```
 
-2. 创建 `.env` 文件：
-```bash
-cp .env.example .env
-# 编辑 .env：设置至少12位的 ADMIN_PASSWORD，并更换 SECRET_KEY
+2. 打开 `docker-compose.yml`，直接修改以下配置：
+
+```yaml
+environment:
+  - ADMIN_USERNAME=admin
+  - ADMIN_PASSWORD=填写你自己的至少12位密码
+  - SECRET_KEY=填写至少32位的随机字符串
+  - COOKIE_SECURE=true # 使用 HTTPS 时设为 true，HTTP 时设为 false
 ```
+
+随机签名密钥可用 `openssl rand -hex 32` 生成，然后粘贴到 `SECRET_KEY` 后面。
 
 3. 启动：
 ```bash
@@ -37,12 +43,11 @@ docker compose up -d
 
 4. 访问 http://localhost:8090
 
-首次启动时，后端会使用 `.env` 中的 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`
+首次启动时，后端会使用 `docker-compose.yml` 中的 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`
 创建管理员。公网网页初始化入口已禁用，未配置安全密码时服务会拒绝启动。
 管理员创建成功后，修改环境变量不会覆盖现有密码；密码可在登录后的系统设置中修改。
-生产环境还必须设置至少32个字符的随机 `SECRET_KEY`，可使用
-`openssl rand -hex 32` 生成。
-公网部署应通过 HTTPS 访问，并将 `COOKIE_SECURE` 设置为 `true`。
+生产环境还必须设置至少32个字符的随机 `SECRET_KEY`。公网部署应通过 HTTPS
+访问，并将 `COOKIE_SECURE` 设置为 `true`。
 
 ### 手动运行
 
