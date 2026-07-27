@@ -107,7 +107,7 @@
         </el-table-column>
         <el-table-column label="操作" width="128" fixed="right" align="right">
           <template #default="{ row }">
-            <el-button size="small" text type="primary" @click="showForm(row)">{{ zhCN.common.edit }}</el-button>
+            <el-button class="table-edit-button" size="small" @click="showForm(row)">{{ zhCN.common.edit }}</el-button>
             <el-button size="small" text type="danger" @click="handleDelete(row)">{{ zhCN.common.delete }}</el-button>
           </template>
         </el-table-column>
@@ -777,6 +777,18 @@ function renderPriceChart() {
 :deep(.row-expiring td:first-child) {
   box-shadow: 3px 0 0 #f59e0b inset;
 }
+:deep(.table-edit-button.el-button) {
+  color: #3730a3 !important;
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  box-shadow: none !important;
+}
+:deep(.table-edit-button.el-button:hover),
+:deep(.table-edit-button.el-button:focus) {
+  color: #ffffff !important;
+  background: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+}
 .template-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -835,4 +847,14 @@ function renderPriceChart() {
 html.dark .selected-info { color: #a5b4fc; }
 html.dark .amount-cell strong { color: #a5b4fc; }
 html.dark .template-item:hover { box-shadow: 0 6px 16px rgba(99, 102, 241, .08); }
+html.dark :deep(.table-edit-button.el-button) {
+  color: #c7d2fe !important;
+  background: #312e81 !important;
+  border-color: #4f46e5 !important;
+}
+html.dark :deep(.table-edit-button.el-button:hover),
+html.dark :deep(.table-edit-button.el-button:focus) {
+  color: #ffffff !important;
+  background: #6366f1 !important;
+}
 </style>
