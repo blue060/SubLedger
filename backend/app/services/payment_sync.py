@@ -12,7 +12,7 @@ logger = logging.getLogger("subledger")
 _sync_lock = Lock()
 
 
-def sync_due_payments(db: Session, as_of: date | None = None) -> int:
+def sync_due_payments(db: Session, as_of: date | None = None, user_id: int | None = None) -> int:
     """Create missing due records and move recurring subscriptions past ``as_of``.
 
     The operation is idempotent: an existing record for the same subscription and
@@ -23,16 +23,15 @@ def sync_due_payments(db: Session, as_of: date | None = None) -> int:
     advanced = 0
 
     with _sync_lock:
-        subscriptions = (
-            db.query(Subscription)
-            .filter(
+        query = db.query(Subscription).filter(
                 Subscription.is_active == True,
                 Subscription.auto_renew == True,
                 Subscription.billing_cycle.in_(RECURRING_CYCLES),
                 or_(Subscription.next_payment_date == None, Subscription.next_payment_date <= as_of),
             )
-            .all()
-        )
+        if user_id is not None:
+            query = query.filter(Subscription.user_id == user_id)
+        subscriptions = query.all()
 
         for sub in subscriptions:
             due_date = sub.next_payment_date

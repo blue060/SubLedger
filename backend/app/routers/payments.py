@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_current_user_id
 from app.models import PaymentRecord, Subscription
 from app.schemas.payment import PaymentCreate, PaymentUpdate, PaymentOut
 from app.services.payment_sync import sync_due_payments
@@ -28,9 +28,10 @@ def list_payments(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
 ):
-    sync_due_payments(db)
-    q = db.query(PaymentRecord).options(joinedload(PaymentRecord.subscription))
+    sync_due_payments(db, user_id=user_id)
+    q = db.query(PaymentRecord).options(joinedload(PaymentRecord.subscription)).join(Subscription).filter(Subscription.user_id == user_id)
     if subscription_id:
         q = q.filter(PaymentRecord.subscription_id == subscription_id)
     if status:
@@ -46,31 +47,32 @@ def list_payments(
 
 
 @router.get("/pending", response_model=list[PaymentOut])
-def list_pending(db: Session = Depends(get_db)):
-    sync_due_payments(db)
-    records = db.query(PaymentRecord).options(joinedload(PaymentRecord.subscription)).filter(
+def list_pending(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    sync_due_payments(db, user_id=user_id)
+    records = db.query(PaymentRecord).options(joinedload(PaymentRecord.subscription)).join(Subscription).filter(
+        Subscription.user_id == user_id,
         PaymentRecord.status == "pending"
     ).order_by(PaymentRecord.payment_date.asc()).all()
     return [_record_to_out(r) for r in records]
 
 
 @router.post("", response_model=PaymentOut, status_code=201)
-def create_payment(body: PaymentCreate, db: Session = Depends(get_db)):
-    sub = db.query(Subscription).filter(Subscription.id == body.subscription_id).first()
+def create_payment(body: PaymentCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    sub = db.query(Subscription).filter(Subscription.id == body.subscription_id, Subscription.user_id == user_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="订阅不存在")
     record = PaymentRecord(**body.model_dump())
     db.add(record)
     db.commit()
     db.refresh(record)
-    sync_due_payments(db)
+    sync_due_payments(db, user_id=user_id)
     db.refresh(record)
     return _record_to_out(record)
 
 
 @router.put("/{record_id}", response_model=PaymentOut)
-def update_payment(record_id: int, body: PaymentUpdate, db: Session = Depends(get_db)):
-    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+def update_payment(record_id: int, body: PaymentUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    record = db.query(PaymentRecord).join(Subscription).filter(PaymentRecord.id == record_id, Subscription.user_id == user_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
     for key, value in body.model_dump(exclude_unset=True).items():
@@ -81,8 +83,8 @@ def update_payment(record_id: int, body: PaymentUpdate, db: Session = Depends(ge
 
 
 @router.post("/{record_id}/confirm")
-def confirm_payment(record_id: int, db: Session = Depends(get_db)):
-    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+def confirm_payment(record_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    record = db.query(PaymentRecord).join(Subscription).filter(PaymentRecord.id == record_id, Subscription.user_id == user_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
     record.status = "confirmed"
@@ -91,8 +93,8 @@ def confirm_payment(record_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{record_id}/skip")
-def skip_payment(record_id: int, db: Session = Depends(get_db)):
-    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+def skip_payment(record_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    record = db.query(PaymentRecord).join(Subscription).filter(PaymentRecord.id == record_id, Subscription.user_id == user_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
     record.status = "skipped"
@@ -101,8 +103,8 @@ def skip_payment(record_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{record_id}")
-def delete_payment(record_id: int, db: Session = Depends(get_db)):
-    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+def delete_payment(record_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    record = db.query(PaymentRecord).join(Subscription).filter(PaymentRecord.id == record_id, Subscription.user_id == user_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
     db.delete(record)

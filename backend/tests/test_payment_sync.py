@@ -9,6 +9,7 @@ from app.services.payment_sync import sync_due_payments
 def _subscription(**overrides):
     data = {
         "name": "测试月付服务",
+        "user_id": 1,
         "amount": 20.0,
         "currency": "CNY",
         "billing_cycle": "monthly",

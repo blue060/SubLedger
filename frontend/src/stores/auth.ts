@@ -5,6 +5,7 @@ import { login as apiLogin, logout as apiLogout, getMe } from '../api/auth'
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false)
   const username = ref('')
+  const isAdmin = ref(false)
   const initialized = ref(false)
   let checkPromise: Promise<boolean> | null = null
 
@@ -12,6 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
     const res = await apiLogin(uname, pwd)
     isLoggedIn.value = true
     username.value = res.data.username
+    isAdmin.value = Boolean(res.data.is_admin)
     initialized.value = true
   }
 
@@ -19,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
     await apiLogout()
     isLoggedIn.value = false
     username.value = ''
+    isAdmin.value = false
     initialized.value = true
   }
 
@@ -30,9 +33,11 @@ export const useAuthStore = defineStore('auth', () => {
         const res = await getMe()
         isLoggedIn.value = true
         username.value = res.data.username
+        isAdmin.value = Boolean(res.data.is_admin)
       } catch {
         isLoggedIn.value = false
         username.value = ''
+        isAdmin.value = false
       } finally {
         initialized.value = true
         checkPromise = null
@@ -42,5 +47,5 @@ export const useAuthStore = defineStore('auth', () => {
     return checkPromise
   }
 
-  return { isLoggedIn, username, initialized, login, logout, checkAuth }
+  return { isLoggedIn, username, isAdmin, initialized, login, logout, checkAuth }
 })

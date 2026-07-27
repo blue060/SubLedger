@@ -114,6 +114,6 @@ def ensure_initial_admin(db: Session, username: str, password: str) -> bool:
     if password.strip().lower() in INSECURE_INITIAL_PASSWORDS:
         raise InitialAdminConfigurationError("ADMIN_PASSWORD 不能使用示例密码或常见弱密码")
 
-    db.add(User(username=username, password_hash=hash_password(password)))
+    db.add(User(username=username, password_hash=hash_password(password), is_admin=True))
     db.commit()
     return True

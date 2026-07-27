@@ -1,15 +1,15 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Integer, String, Float, Boolean, Date, DateTime, Text, func, Table, Column, Index
+from sqlalchemy import ForeignKey, Integer, String, Float, Boolean, Date, DateTime, Text, func, Table, Column, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
 subscription_tags = Table(
     "subscription_tags", Base.metadata,
-    Column("subscription_id", Integer, ForeignKey("subscriptions.id"), primary_key=True),
-    Column("tag_id", Integer, ForeignKey("tags.id"), primary_key=True),
+    Column("subscription_id", Integer, ForeignKey("subscriptions.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
@@ -19,14 +19,25 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, default="admin")
     password_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+    categories: Mapped[list["Category"]] = relationship("Category", back_populates="user", cascade="all, delete-orphan")
+    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
+    settings: Mapped[Optional["AppSettings"]] = relationship("AppSettings", back_populates="user", cascade="all, delete-orphan")
+    tags: Mapped[list["Tag"]] = relationship("Tag", back_populates="user", cascade="all, delete-orphan")
+    backup_records: Mapped[list["BackupRecord"]] = relationship("BackupRecord", back_populates="user", cascade="all, delete-orphan")
 
 
 class Category(Base):
     __tablename__ = "categories"
+    __table_args__ = (
+        Index("ix_categories_user_sort", "user_id", "sort_order"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     icon: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
@@ -34,15 +45,18 @@ class Category(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="category")
+    user: Mapped["User"] = relationship("User", back_populates="categories")
 
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
     __table_args__ = (
         Index("ix_subscriptions_billing_sync", "is_active", "auto_renew", "billing_cycle", "next_payment_date"),
+        Index("ix_subscriptions_user_active", "user_id", "is_active"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="CNY")
@@ -71,13 +85,14 @@ class Subscription(Base):
     price_history: Mapped[list["PriceHistory"]] = relationship("PriceHistory", cascade="all, delete-orphan")
     payment_records: Mapped[list["PaymentRecord"]] = relationship("PaymentRecord", back_populates="subscription", cascade="all, delete-orphan")
     tags: Mapped[list["Tag"]] = relationship("Tag", secondary=subscription_tags, back_populates="subscriptions")
+    user: Mapped["User"] = relationship("User", back_populates="subscriptions")
 
 
 class Notification(Base):
     __tablename__ = "notifications"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id"), nullable=False)
+    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id", ondelete="CASCADE"), nullable=False)
     message: Mapped[str] = mapped_column(String(500), nullable=False)
     notify_date: Mapped[date] = mapped_column(Date, nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -91,8 +106,12 @@ class Notification(Base):
 
 class AppSettings(Base):
     __tablename__ = "app_settings"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_app_settings_user_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     preferred_currency: Mapped[str] = mapped_column(String(3), default="CNY")
     reminder_days: Mapped[int] = mapped_column(Integer, default=7)
     smtp_host: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -112,12 +131,14 @@ class AppSettings(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 
+    user: Mapped["User"] = relationship("User", back_populates="settings")
+
 
 class PriceHistory(Base):
     __tablename__ = "price_history"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id"), nullable=False)
+    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id", ondelete="CASCADE"), nullable=False)
     old_amount: Mapped[float] = mapped_column(Float, nullable=False)
     new_amount: Mapped[float] = mapped_column(Float, nullable=False)
     old_currency: Mapped[str] = mapped_column(String(3), nullable=False)
@@ -133,7 +154,7 @@ class PaymentRecord(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id"), nullable=False)
+    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id", ondelete="CASCADE"), nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="CNY")
     payment_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -146,19 +167,27 @@ class PaymentRecord(Base):
 
 class Tag(Base):
     __tablename__ = "tags"
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_tags_user_name"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
     color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", secondary=subscription_tags, back_populates="tags")
+    user: Mapped["User"] = relationship("User", back_populates="tags")
 
 
 class BackupRecord(Base):
     __tablename__ = "backup_records"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    user: Mapped["User"] = relationship("User", back_populates="backup_records")

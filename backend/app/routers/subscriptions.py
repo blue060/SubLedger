@@ -5,7 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_current_user_id
 from app.models import Subscription, Category, PriceHistory, Tag
 from app.schemas.subscription import SubscriptionCreate, SubscriptionUpdate, SubscriptionOut, RECURRING_CYCLES, EXPIRY_REQUIRED_MESSAGE
 from app.schemas.price_history import PriceHistoryOut
@@ -48,10 +48,11 @@ def list_subscriptions(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=0, ge=0, le=100),
     db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
 ):
-    deactivate_expired_subscriptions(db)
-    sync_due_payments(db)
-    q = db.query(Subscription).options(selectinload(Subscription.tags))
+    deactivate_expired_subscriptions(db, user_id=user_id)
+    sync_due_payments(db, user_id=user_id)
+    q = db.query(Subscription).options(selectinload(Subscription.tags)).filter(Subscription.user_id == user_id)
     if is_active is not None:
         q = q.filter(Subscription.is_active == is_active)
     if search:
@@ -71,9 +72,9 @@ def list_subscriptions(
 
 
 @router.post("", response_model=SubscriptionOut, status_code=status.HTTP_201_CREATED)
-def create_subscription(body: SubscriptionCreate, db: Session = Depends(get_db)):
+def create_subscription(body: SubscriptionCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     if body.category_id:
-        cat = db.query(Category).filter(Category.id == body.category_id).first()
+        cat = db.query(Category).filter(Category.id == body.category_id, Category.user_id == user_id).first()
         if not cat:
             raise HTTPException(status_code=400, detail="分类不存在")
 
@@ -86,30 +87,32 @@ def create_subscription(body: SubscriptionCreate, db: Session = Depends(get_db))
     )
 
     data = body.model_dump(exclude={"tag_ids"})
-    sub = Subscription(**data, next_payment_date=next_date)
+    sub = Subscription(**data, user_id=user_id, next_payment_date=next_date)
     if body.tag_ids:
-        sub.tags = db.query(Tag).filter(Tag.id.in_(body.tag_ids)).all()
+        sub.tags = db.query(Tag).filter(Tag.user_id == user_id, Tag.id.in_(body.tag_ids)).all()
+        if len(sub.tags) != len(set(body.tag_ids)):
+            raise HTTPException(status_code=400, detail="部分标签不存在")
     db.add(sub)
     db.commit()
     db.refresh(sub)
-    deactivate_expired_subscriptions(db)
+    deactivate_expired_subscriptions(db, user_id=user_id)
     db.refresh(sub)
-    sync_due_payments(db)
+    sync_due_payments(db, user_id=user_id)
     db.refresh(sub)
     return _sub_to_out(sub)
 
 
-@router.get("/{sub_id}", response_model=SubscriptionOut)
-def get_subscription(sub_id: int, db: Session = Depends(get_db)):
-    sub = db.query(Subscription).filter(Subscription.id == sub_id).first()
+@router.get("/{sub_id:int}", response_model=SubscriptionOut)
+def get_subscription(sub_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    sub = db.query(Subscription).filter(Subscription.id == sub_id, Subscription.user_id == user_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="订阅不存在")
     return _sub_to_out(sub)
 
 
-@router.get("/{sub_id}/price-history", response_model=list[PriceHistoryOut])
-def get_price_history(sub_id: int, db: Session = Depends(get_db)):
-    sub = db.query(Subscription).filter(Subscription.id == sub_id).first()
+@router.get("/{sub_id:int}/price-history", response_model=list[PriceHistoryOut])
+def get_price_history(sub_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    sub = db.query(Subscription).filter(Subscription.id == sub_id, Subscription.user_id == user_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="订阅不存在")
     return db.query(PriceHistory).filter(
@@ -117,7 +120,7 @@ def get_price_history(sub_id: int, db: Session = Depends(get_db)):
     ).order_by(PriceHistory.created_at.desc()).all()
 
 
-def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session) -> Subscription:
+def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session, user_id: int) -> Subscription:
     update_data = body.model_dump(exclude_unset=True)
 
     tag_ids = update_data.pop("tag_ids", None)
@@ -130,6 +133,12 @@ def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session) -> S
     effective_auto_renew = update_data.get("auto_renew", sub.auto_renew)
     effective_expiry_date = update_data.get("expiry_date", sub.expiry_date)
     _validate_expiry_rule(effective_billing_cycle, effective_auto_renew, effective_expiry_date)
+
+    category_id = update_data.get("category_id")
+    if category_id is not None and not db.query(Category.id).filter(
+        Category.id == category_id, Category.user_id == user_id
+    ).first():
+        raise HTTPException(status_code=400, detail="分类不存在")
 
     if "amount" in update_data or "currency" in update_data:
         old_amount = sub.amount
@@ -149,7 +158,9 @@ def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session) -> S
         setattr(sub, key, value)
 
     if tag_ids is not None:
-        sub.tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+        sub.tags = db.query(Tag).filter(Tag.user_id == user_id, Tag.id.in_(tag_ids)).all() if tag_ids else []
+        if len(sub.tags) != len(set(tag_ids)):
+            raise HTTPException(status_code=400, detail="部分标签不存在")
 
     if any(k in update_data for k in ("first_payment_date", "billing_cycle", "billing_cycle_num", "billing_cycle_unit")):
         sub.next_payment_date = calculate_next_payment_date(
@@ -160,44 +171,48 @@ def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session) -> S
 
     db.commit()
     db.refresh(sub)
-    deactivate_expired_subscriptions(db)
+    deactivate_expired_subscriptions(db, user_id=user_id)
     db.refresh(sub)
-    sync_due_payments(db)
+    sync_due_payments(db, user_id=user_id)
     db.refresh(sub)
     return sub
 
 
-@router.put("/{sub_id}", response_model=SubscriptionOut)
-def update_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Depends(get_db)):
-    sub = db.query(Subscription).filter(Subscription.id == sub_id).first()
+@router.put("/{sub_id:int}", response_model=SubscriptionOut)
+def update_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    sub = db.query(Subscription).filter(Subscription.id == sub_id, Subscription.user_id == user_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="订阅不存在")
 
     try:
-        _apply_update(sub, body, db)
+        _apply_update(sub, body, db, user_id)
         return _sub_to_out(sub)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"更新订阅失败: sub_id={sub_id}, update_data={body.model_dump(exclude_unset=True)}")
         raise HTTPException(status_code=500, detail=f"更新订阅失败: {e}")
 
 
-@router.patch("/{sub_id}", response_model=SubscriptionOut)
-def patch_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Depends(get_db)):
-    sub = db.query(Subscription).filter(Subscription.id == sub_id).first()
+@router.patch("/{sub_id:int}", response_model=SubscriptionOut)
+def patch_subscription(sub_id: int, body: SubscriptionUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    sub = db.query(Subscription).filter(Subscription.id == sub_id, Subscription.user_id == user_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="订阅不存在")
 
     try:
-        _apply_update(sub, body, db)
+        _apply_update(sub, body, db, user_id)
         return _sub_to_out(sub)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"更新订阅失败: sub_id={sub_id}, update_data={body.model_dump(exclude_unset=True)}")
         raise HTTPException(status_code=500, detail=f"更新订阅失败: {e}")
 
 
-@router.delete("/{sub_id}")
-def delete_subscription(sub_id: int, db: Session = Depends(get_db)):
-    sub = db.query(Subscription).filter(Subscription.id == sub_id).first()
+@router.delete("/{sub_id:int}")
+def delete_subscription(sub_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    sub = db.query(Subscription).filter(Subscription.id == sub_id, Subscription.user_id == user_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="订阅不存在")
     db.delete(sub)
@@ -206,15 +221,19 @@ def delete_subscription(sub_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/batch-delete")
-def batch_delete(ids: list[int] = Body(..., embed=True), db: Session = Depends(get_db)):
-    db.query(Subscription).filter(Subscription.id.in_(ids)).delete(synchronize_session=False)
+def batch_delete(ids: list[int] = Body(..., embed=True), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    subscriptions = db.query(Subscription).filter(
+        Subscription.user_id == user_id, Subscription.id.in_(ids)
+    ).all()
+    for subscription in subscriptions:
+        db.delete(subscription)
     db.commit()
-    return {"detail": f"已删除 {len(ids)} 个订阅"}
+    return {"detail": f"已删除 {len(subscriptions)} 个订阅"}
 
 
 @router.post("/batch-toggle")
-def batch_toggle(ids: list[int] = Body(..., embed=True), is_active: bool = Body(..., embed=True), db: Session = Depends(get_db)):
-    query = db.query(Subscription).filter(Subscription.id.in_(ids))
+def batch_toggle(ids: list[int] = Body(..., embed=True), is_active: bool = Body(..., embed=True), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    query = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.id.in_(ids))
     if is_active:
         query = query.filter(or_(Subscription.expiry_date == None, Subscription.expiry_date >= date.today()))
     updated = query.update(
@@ -226,8 +245,10 @@ def batch_toggle(ids: list[int] = Body(..., embed=True), is_active: bool = Body(
 
 
 @router.post("/batch-category")
-def batch_category(ids: list[int] = Body(..., embed=True), category_id: int = Body(..., embed=True), db: Session = Depends(get_db)):
-    subs = db.query(Subscription).filter(Subscription.id.in_(ids)).all()
+def batch_category(ids: list[int] = Body(..., embed=True), category_id: int = Body(..., embed=True), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    if not db.query(Category.id).filter(Category.id == category_id, Category.user_id == user_id).first():
+        raise HTTPException(status_code=400, detail="分类不存在")
+    subs = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.id.in_(ids)).all()
     for sub in subs:
         sub.category_id = category_id
     db.commit()
@@ -235,10 +256,10 @@ def batch_category(ids: list[int] = Body(..., embed=True), category_id: int = Bo
 
 
 @router.post("/batch-expiry")
-def batch_expiry(ids: list[int] = Body(..., embed=True), expiry_date: date = Body(..., embed=True), db: Session = Depends(get_db)):
-    subs = db.query(Subscription).filter(Subscription.id.in_(ids)).all()
+def batch_expiry(ids: list[int] = Body(..., embed=True), expiry_date: date = Body(..., embed=True), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    subs = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.id.in_(ids)).all()
     for sub in subs:
         sub.expiry_date = expiry_date
     db.commit()
-    deactivate_expired_subscriptions(db)
+    deactivate_expired_subscriptions(db, user_id=user_id)
     return {"detail": f"已更新 {len(subs)} 个订阅"}

@@ -5,12 +5,12 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import require_admin
 from app.models import BackupRecord
 from app.schemas.backup import BackupOut
 from app.services.backup import perform_backup
 
-router = APIRouter(prefix="/api/backups", tags=["备份"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/api/backups", tags=["备份"], dependencies=[Depends(require_admin)])
 
 
 @router.get("", response_model=list[BackupOut])
@@ -19,8 +19,8 @@ def list_backups(db: Session = Depends(get_db)):
 
 
 @router.post("/trigger", response_model=BackupOut)
-def trigger_backup(db: Session = Depends(get_db)):
-    record = perform_backup(db)
+def trigger_backup(current_user: dict = Depends(require_admin), db: Session = Depends(get_db)):
+    record = perform_backup(db, current_user["user_id"])
     return record
 
 

@@ -152,14 +152,18 @@ class Notifier:
 notifier = Notifier()
 
 
-async def check_upcoming_subscriptions(db: Session) -> None:
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
-    if not settings:
+async def check_upcoming_subscriptions(db: Session, user_id: int | None = None) -> None:
+    settings_query = db.query(AppSettings)
+    if user_id is not None:
+        settings_query = settings_query.filter(AppSettings.user_id == user_id)
+    settings_rows = settings_query.all()
+    if not settings_rows:
         return
 
-    reminder_days = settings.reminder_days
+    settings_by_user = {settings.user_id: settings for settings in settings_rows}
+    max_reminder_days = max(settings.reminder_days for settings in settings_rows)
     today = date.today()
-    end_date = today + timedelta(days=reminder_days)
+    end_date = today + timedelta(days=max_reminder_days)
 
     subs = (
         db.query(Subscription)
@@ -169,11 +173,15 @@ async def check_upcoming_subscriptions(db: Session) -> None:
             Subscription.auto_renew == True,
             Subscription.next_payment_date >= today,
             Subscription.next_payment_date <= end_date,
+            Subscription.user_id.in_(settings_by_user),
         )
         .all()
     )
 
     for sub in subs:
+        settings = settings_by_user[sub.user_id]
+        if sub.next_payment_date > today + timedelta(days=settings.reminder_days):
+            continue
         existing = (
             db.query(Notification)
             .filter(
@@ -201,7 +209,7 @@ async def check_upcoming_subscriptions(db: Session) -> None:
 
         await notifier.send(notification, settings, db)
 
-    start_date = today - timedelta(days=reminder_days)
+    start_date = today - timedelta(days=max_reminder_days)
 
     # Check expiring subscriptions
     expiring_subs = (
@@ -213,11 +221,17 @@ async def check_upcoming_subscriptions(db: Session) -> None:
             Subscription.expiry_date != None,
             Subscription.expiry_date >= start_date,
             Subscription.expiry_date <= end_date,
+            Subscription.user_id.in_(settings_by_user),
         )
         .all()
     )
 
     for sub in expiring_subs:
+        settings = settings_by_user[sub.user_id]
+        user_start = today - timedelta(days=settings.reminder_days)
+        user_end = today + timedelta(days=settings.reminder_days)
+        if sub.expiry_date < user_start or sub.expiry_date > user_end:
+            continue
         existing = (
             db.query(Notification)
             .filter(

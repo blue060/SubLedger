@@ -9,16 +9,16 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user
-from app.models import Subscription
+from app.dependencies import get_current_user, get_current_user_id
+from app.models import Category, Subscription
 from app.services.billing import calculate_next_payment_date
 
 router = APIRouter(prefix="/api/data", tags=["数据"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/export")
-def export_data(format: str = "csv", db: Session = Depends(get_db)):
-    subscriptions = db.query(Subscription).all()
+def export_data(format: str = "csv", db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id).all()
 
     if format == "json":
         data = []
@@ -74,7 +74,7 @@ def export_data(format: str = "csv", db: Session = Depends(get_db)):
     )
 
 
-def _parse_row(row: dict, row_num: int) -> tuple[Optional[Subscription], Optional[str]]:
+def _parse_row(row: dict, row_num: int, user_id: int) -> tuple[Optional[Subscription], Optional[str]]:
     name = str(row.get("name", "")).strip()
     if not name:
         return None, f"第 {row_num} 条：名称为空，已跳过"
@@ -116,6 +116,7 @@ def _parse_row(row: dict, row_num: int) -> tuple[Optional[Subscription], Optiona
     is_active = active_val if isinstance(active_val, bool) else str(active_val).strip().lower() in ("true", "1")
 
     sub = Subscription(
+        user_id=user_id,
         name=name,
         amount=amount,
         currency=currency,
@@ -139,7 +140,7 @@ def _parse_row(row: dict, row_num: int) -> tuple[Optional[Subscription], Optiona
 
 
 @router.post("/import")
-async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     content = await file.read()
     text = content.decode("utf-8-sig")
 
@@ -149,13 +150,14 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
 
     is_json = file.filename and file.filename.endswith(".json")
 
-    existing_names = {s.name for s in db.query(Subscription.name).all()}
+    existing_names = {row[0] for row in db.query(Subscription.name).filter(Subscription.user_id == user_id).all()}
+    category_ids = {row[0] for row in db.query(Category.id).filter(Category.user_id == user_id).all()}
 
     if is_json:
         data = json.loads(text)
         for i, row in enumerate(data, start=1):
             try:
-                sub, err = _parse_row(row, i)
+                sub, err = _parse_row(row, i, user_id)
                 if err:
                     errors.append(err)
                     skipped += 1
@@ -164,6 +166,9 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
                     errors.append(f"第 {i} 条：'{sub.name}' 已存在，已跳过")
                     skipped += 1
                     continue
+                if sub.category_id is not None and sub.category_id not in category_ids:
+                    errors.append(f"第 {i} 条：分类不属于当前用户，已改为未分类")
+                    sub.category_id = None
                 db.add(sub)
                 existing_names.add(sub.name)
                 imported += 1
@@ -174,7 +179,7 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
         reader = csv.DictReader(io.StringIO(text))
         for row_num, row in enumerate(reader, start=2):
             try:
-                sub, err = _parse_row(row, row_num)
+                sub, err = _parse_row(row, row_num, user_id)
                 if err:
                     errors.append(err)
                     skipped += 1
@@ -183,6 +188,9 @@ async def import_data(file: UploadFile = File(...), db: Session = Depends(get_db
                     errors.append(f"第 {row_num} 行：'{sub.name}' 已存在，已跳过")
                     skipped += 1
                     continue
+                if sub.category_id is not None and sub.category_id not in category_ids:
+                    errors.append(f"第 {row_num} 行：分类不属于当前用户，已改为未分类")
+                    sub.category_id = None
                 db.add(sub)
                 existing_names.add(sub.name)
                 imported += 1

@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base, get_db
 from app.security import hash_password
 from app.models import User, Category, Subscription, Notification, AppSettings
-from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments
+from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, tags, backups, search, analytics, users
 
 TEST_DB_URL = "sqlite:///./test_subledger.db"
 test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
@@ -41,6 +41,11 @@ def create_test_app():
     app.include_router(settings_router.router)
     app.include_router(data.router)
     app.include_router(payments.router)
+    app.include_router(tags.router)
+    app.include_router(backups.router)
+    app.include_router(search.router)
+    app.include_router(analytics.router)
+    app.include_router(users.router)
     app.dependency_overrides[get_db] = override_get_db
     return app
 
@@ -66,10 +71,11 @@ def db():
 @pytest.fixture
 def client(db):
     if db.query(User).count() == 0:
-        db.add(User(username="admin", password_hash=hash_password("testpassword")))
+        db.add(User(username="admin", password_hash=hash_password("testpassword"), is_admin=True))
         db.commit()
     if db.query(AppSettings).count() == 0:
-        db.add(AppSettings(preferred_currency="CNY", reminder_days=7))
+        admin_id = db.query(User.id).filter(User.username == "admin").scalar()
+        db.add(AppSettings(user_id=admin_id, preferred_currency="CNY", reminder_days=7))
         db.commit()
 
     with TestClient(test_app) as c:
@@ -88,9 +94,10 @@ def auth_client(client):
 
 @pytest.fixture
 def seed_categories(db):
+    user_id = db.query(User.id).filter(User.username == "admin").scalar()
     cats = [
-        Category(name="视频", icon="VideoPlay", color="#409EFF", sort_order=0),
-        Category(name="音乐", icon="Headset", color="#67C23A", sort_order=1),
+        Category(user_id=user_id, name="视频", icon="VideoPlay", color="#409EFF", sort_order=0),
+        Category(user_id=user_id, name="音乐", icon="Headset", color="#67C23A", sort_order=1),
     ]
     for c in cats:
         db.add(c)

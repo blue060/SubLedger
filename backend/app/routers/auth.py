@@ -38,7 +38,7 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
         max_age=7 * 24 * 3600,
     )
 
-    return LoginResponse(username=user.username)
+    return LoginResponse(username=user.username, is_admin=user.is_admin)
 
 
 @router.post("/logout")
@@ -50,7 +50,8 @@ def logout(response: Response):
 
 @router.get("/me", response_model=AuthStatus)
 def me(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == current_user["user_id"]).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
-    return AuthStatus(user_id=user.id, username=user.username)
+    return AuthStatus(
+        user_id=current_user["user_id"],
+        username=current_user["username"],
+        is_admin=current_user["is_admin"],
+    )

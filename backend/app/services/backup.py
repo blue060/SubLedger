@@ -11,7 +11,7 @@ from app.config import get_settings
 logger = logging.getLogger("subledger")
 
 
-def perform_backup(db: Session) -> BackupRecord:
+def perform_backup(db: Session, user_id: int) -> BackupRecord:
     settings = get_settings()
     source = settings.DATABASE_URL.replace("sqlite:///", "")
     backup_dir = os.path.join(os.path.dirname(source), "backups")
@@ -22,10 +22,10 @@ def perform_backup(db: Session) -> BackupRecord:
     shutil.copy2(source, dest)
     file_size = os.path.getsize(dest)
 
-    record = BackupRecord(file_path=dest, file_size=file_size)
+    record = BackupRecord(user_id=user_id, file_path=dest, file_size=file_size)
     db.add(record)
 
-    app_settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    app_settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     max_copies = 5
     if app_settings:
         max_copies = getattr(app_settings, 'backup_max_copies', 5) or 5

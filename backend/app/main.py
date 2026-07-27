@@ -9,11 +9,12 @@ from sqlalchemy import text
 from app.config import get_settings
 from app.database import Base, engine, SessionLocal
 from app.models import User, Category, Notification, Subscription, AppSettings, PaymentRecord, Tag, BackupRecord
-from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, tags, backups, search, analytics
+from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, tags, backups, search, analytics, users
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.payment_sync import sync_due_payments
 from app.services.admin_bootstrap import ensure_initial_admin, load_or_create_runtime_secret
 from app.services.subscription_lifecycle import deactivate_expired_subscriptions
+from app.services.user_provisioning import ensure_user_workspace
 from app.middleware.csrf import CSRFMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
@@ -21,6 +22,12 @@ logger = logging.getLogger("subledger")
 
 # New columns added in recent versions that need auto-migration for existing SQLite DBs
 MIGRATIONS = [
+    ("users", "is_admin", "BOOLEAN DEFAULT 0 NOT NULL"),
+    ("categories", "user_id", "INTEGER REFERENCES users(id)"),
+    ("subscriptions", "user_id", "INTEGER REFERENCES users(id)"),
+    ("app_settings", "user_id", "INTEGER REFERENCES users(id)"),
+    ("tags", "user_id", "INTEGER REFERENCES users(id)"),
+    ("backup_records", "user_id", "INTEGER REFERENCES users(id)"),
     ("subscriptions", "billing_cycle_num", "INTEGER DEFAULT 1 NOT NULL"),
     ("subscriptions", "billing_cycle_unit", "VARCHAR(10) DEFAULT 'month' NOT NULL"),
     ("subscriptions", "intro_amount", "FLOAT"),
@@ -37,19 +44,6 @@ MIGRATIONS = [
     ("subscriptions", "auto_renew", "BOOLEAN DEFAULT 1 NOT NULL"),
     ("app_settings", "wechat_webhook_url", "VARCHAR(500)"),
 ]
-
-DEFAULT_CATEGORIES = [
-    {"name": "视频", "icon": "VideoPlay", "color": "#409EFF", "sort_order": 0},
-    {"name": "音乐", "icon": "Headset", "color": "#67C23A", "sort_order": 1},
-    {"name": "云存储", "icon": "Cloudy", "color": "#E6A23C", "sort_order": 2},
-    {"name": "会员", "icon": "User", "color": "#F56C6C", "sort_order": 3},
-    {"name": "游戏", "icon": "GamePad", "color": "#C0C4FC", "sort_order": 4},
-    {"name": "AI工具", "icon": "MagicStick", "color": "#9B59B6", "sort_order": 5},
-    {"name": "云服务", "icon": "Cloudy", "color": "#3498DB", "sort_order": 6},
-    {"name": "域名", "icon": "Connection", "color": "#14B8A6", "sort_order": 7},
-    {"name": "其他", "icon": "More", "color": "#DCDFE6", "sort_order": 8},
-]
-
 
 def migrate_database():
     with engine.connect() as conn:
@@ -70,7 +64,103 @@ def migrate_database():
             "CREATE INDEX IF NOT EXISTS ix_subscriptions_billing_sync "
             "ON subscriptions (is_active, auto_renew, billing_cycle, next_payment_date)"
         ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_subscriptions_user_active "
+            "ON subscriptions (user_id, is_active)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_categories_user_sort "
+            "ON categories (user_id, sort_order)"
+        ))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tags_user_id ON tags (user_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_backup_records_user_id ON backup_records (user_id)"))
         conn.commit()
+
+
+def migrate_user_ownership():
+    """Assign all legacy single-user data to the original administrator."""
+    db = SessionLocal()
+    try:
+        first_user = db.query(User).order_by(User.id).first()
+        if not first_user:
+            return
+        if not db.query(User.id).filter(User.is_admin == True).first():
+            first_user.is_admin = True
+
+        for model in (Category, Subscription, AppSettings, Tag, BackupRecord):
+            db.query(model).filter(model.user_id == None).update(
+                {model.user_id: first_user.id}, synchronize_session=False
+            )
+        db.commit()
+        with engine.connect() as conn:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_app_settings_user_id "
+                "ON app_settings (user_id)"
+            ))
+            conn.commit()
+    finally:
+        db.close()
+
+
+def migrate_tag_uniqueness():
+    """Replace the legacy global tag-name constraint with a per-user one."""
+    with engine.connect() as conn:
+        indexes = conn.execute(text("PRAGMA index_list(tags)")).fetchall()
+        has_global_unique_name = False
+        for index in indexes:
+            if not index[2]:
+                continue
+            columns = conn.execute(text(f"PRAGMA index_info('{index[1]}')")).fetchall()
+            if [column[2] for column in columns] == ["name"]:
+                has_global_unique_name = True
+                break
+    if not has_global_unique_name:
+        return
+
+    connection = engine.raw_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys=OFF")
+        cursor.execute("BEGIN")
+        cursor.execute(
+            "CREATE TEMP TABLE subscription_tags_backup AS "
+            "SELECT subscription_id, tag_id FROM subscription_tags"
+        )
+        cursor.execute("DROP TABLE subscription_tags")
+        cursor.execute(
+            "CREATE TABLE tags_new ("
+            "id INTEGER NOT NULL PRIMARY KEY, user_id INTEGER NOT NULL, "
+            "name VARCHAR(50) NOT NULL, color VARCHAR(7), created_at DATETIME, "
+            "CONSTRAINT uq_tags_user_name UNIQUE (user_id, name), "
+            "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)"
+        )
+        cursor.execute(
+            "INSERT INTO tags_new (id, user_id, name, color, created_at) "
+            "SELECT id, user_id, name, color, created_at FROM tags"
+        )
+        cursor.execute("DROP TABLE tags")
+        cursor.execute("ALTER TABLE tags_new RENAME TO tags")
+        cursor.execute("CREATE INDEX ix_tags_user_id ON tags (user_id)")
+        cursor.execute(
+            "CREATE TABLE subscription_tags ("
+            "subscription_id INTEGER NOT NULL, tag_id INTEGER NOT NULL, "
+            "PRIMARY KEY (subscription_id, tag_id), "
+            "FOREIGN KEY(subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE, "
+            "FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE)"
+        )
+        cursor.execute(
+            "INSERT INTO subscription_tags (subscription_id, tag_id) "
+            "SELECT subscription_id, tag_id FROM subscription_tags_backup"
+        )
+        cursor.execute("DROP TABLE subscription_tags_backup")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+        connection.close()
 
 
 def migrate_auto_renew():
@@ -89,21 +179,14 @@ def seed_database():
     try:
         settings = get_settings()
 
-        # Seed default categories
-        if db.query(Category).count() == 0:
-            for cat in DEFAULT_CATEGORIES:
-                db.add(Category(**cat))
-            db.commit()
-            logger.info("已创建默认分类")
-
-        # Seed app settings
-        if db.query(AppSettings).count() == 0:
-            db.add(AppSettings(
+        for user_id, in db.query(User.id).all():
+            ensure_user_workspace(
+                db,
+                user_id,
                 preferred_currency=settings.DEFAULT_CURRENCY,
                 reminder_days=settings.REMINDER_DAYS,
-            ))
-            db.commit()
-            logger.info("已初始化应用设置")
+            )
+        db.commit()
     finally:
         db.close()
 
@@ -127,30 +210,41 @@ def migrate_categories():
     """Apply the revised built-in category set without losing subscriptions."""
     db = SessionLocal()
     try:
-        other = db.query(Category).filter(Category.name == "其他").order_by(Category.id).first()
-        if not other:
-            other = Category(name="其他", icon="More", color="#DCDFE6", sort_order=999)
-            db.add(other)
-            db.flush()
+        migrated_deprecated = False
+        for user_id, in db.query(User.id).all():
+            other = db.query(Category).filter(
+                Category.user_id == user_id, Category.name == "其他"
+            ).order_by(Category.id).first()
+            if not other:
+                other = Category(user_id=user_id, name="其他", icon="More", color="#DCDFE6", sort_order=999)
+                db.add(other)
+                db.flush()
 
-        deprecated = db.query(Category).filter(Category.name.in_(["工具", "开发工具"])).all()
-        for category in deprecated:
-            db.query(Subscription).filter(Subscription.category_id == category.id).update(
-                {Subscription.category_id: other.id}, synchronize_session=False
-            )
-            db.delete(category)
+            deprecated = db.query(Category).filter(
+                Category.user_id == user_id,
+                Category.name.in_(["工具", "开发工具"]),
+            ).all()
+            for category in deprecated:
+                db.query(Subscription).filter(
+                    Subscription.user_id == user_id,
+                    Subscription.category_id == category.id,
+                ).update({Subscription.category_id: other.id}, synchronize_session=False)
+                db.delete(category)
+                migrated_deprecated = True
 
-        domain = db.query(Category).filter(Category.name == "域名").order_by(Category.id).first()
-        if not domain:
-            current_max = max((row[0] or 0 for row in db.query(Category.sort_order).all()), default=0)
-            domain = Category(name="域名", icon="Connection", color="#14B8A6", sort_order=current_max + 1)
-            db.add(domain)
-            db.flush()
+            domain = db.query(Category).filter(
+                Category.user_id == user_id, Category.name == "域名"
+            ).order_by(Category.id).first()
+            if not domain:
+                current_max = max((row[0] or 0 for row in db.query(Category.sort_order).filter(Category.user_id == user_id).all()), default=0)
+                db.add(Category(user_id=user_id, name="域名", icon="Connection", color="#14B8A6", sort_order=current_max + 1))
 
-        max_order = max((row[0] or 0 for row in db.query(Category.sort_order).filter(Category.id != other.id).all()), default=0)
-        other.sort_order = max_order + 1
+            max_order = max((row[0] or 0 for row in db.query(Category.sort_order).filter(
+                Category.user_id == user_id, Category.id != other.id
+            ).all()), default=0)
+            other.sort_order = max_order + 1
         db.commit()
-        if deprecated:
+        if migrated_deprecated:
             logger.info("分类迁移完成: 已移除工具/开发工具并将其订阅归入其他")
     finally:
         db.close()
@@ -171,8 +265,10 @@ def sync_payments_on_startup():
 async def lifespan(app: FastAPI):
     # Startup
     Base.metadata.create_all(bind=engine)
-    initialize_admin_user()
     migrate_database()
+    initialize_admin_user()
+    migrate_user_ownership()
+    migrate_tag_uniqueness()
     migrate_auto_renew()
     seed_database()
     migrate_categories()
@@ -204,6 +300,7 @@ app.include_router(tags.router)
 app.include_router(backups.router)
 app.include_router(search.router)
 app.include_router(analytics.router)
+app.include_router(users.router)
 
 # Static files & SPA fallback
 static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static")

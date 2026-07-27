@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_current_user_id
 from app.models import Subscription, AppSettings, Category
 from app.schemas.dashboard import DashboardSummary, CategoryStat, CalendarEntry, ExpiringSubscription, MonthlyTrend, BudgetStatus
 from app.services.exchange_rate import exchange_rate_service
@@ -15,8 +15,8 @@ router = APIRouter(prefix="/api/dashboard", tags=["仪表盘"], dependencies=[De
 
 
 @router.get("/summary", response_model=DashboardSummary)
-async def get_summary(db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+async def get_summary(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
 
     today = date.today()
@@ -24,7 +24,7 @@ async def get_summary(db: Session = Depends(get_db)):
     next_month = (current_month + timedelta(days=32)).replace(day=1)
     last_month = current_month - relativedelta(months=1)
 
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
 
     # Collect amounts by currency to batch conversions
     current_by_cur: dict[str, float] = {}
@@ -79,14 +79,14 @@ async def get_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/stats", response_model=list[CategoryStat])
-async def get_stats(db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+async def get_stats(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
 
     today = date.today()
     current_month = today.replace(day=1)
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
-    categories = db.query(Category).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
+    categories = db.query(Category).filter(Category.user_id == user_id).all()
     cat_map = {c.id: c for c in categories}
 
     stats: dict[str, CategoryStat] = {}
@@ -114,8 +114,9 @@ async def get_calendar(
     year: Optional[int] = Query(default=None, ge=2000, le=2100),
     month: Optional[int] = Query(default=None, ge=1, le=12),
     db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
 ):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
 
     today = date.today()
@@ -126,8 +127,8 @@ async def get_calendar(
         start_date = today
         end_date = today + timedelta(days=30)
 
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
-    categories = db.query(Category).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
+    categories = db.query(Category).filter(Category.user_id == user_id).all()
     cat_map = {c.id: c for c in categories}
 
     entries = []
@@ -191,10 +192,11 @@ async def get_calendar(
 
 
 @router.get("/expiring", response_model=list[ExpiringSubscription])
-def get_expiring(days: int = Query(default=30, ge=1, le=365), db: Session = Depends(get_db)):
+def get_expiring(days: int = Query(default=30, ge=1, le=365), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     today = date.today()
     threshold = today + timedelta(days=days)
     subs = db.query(Subscription).filter(
+        Subscription.user_id == user_id,
         Subscription.is_active == True,
         Subscription.auto_renew == False,
         Subscription.expiry_date != None,
@@ -214,10 +216,10 @@ def get_expiring(days: int = Query(default=30, ge=1, le=365), db: Session = Depe
 
 
 @router.get("/trend", response_model=list[MonthlyTrend])
-async def get_trend(months: int = Query(default=12, ge=1, le=24), db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+async def get_trend(months: int = Query(default=12, ge=1, le=24), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
 
     today = date.today()
     result = []
@@ -241,14 +243,14 @@ async def get_trend(months: int = Query(default=12, ge=1, le=24), db: Session = 
 
 
 @router.get("/budget", response_model=BudgetStatus)
-async def get_budget(db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+async def get_budget(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
     budget = settings.monthly_budget if settings else None
 
     today = date.today()
     current_month = today.replace(day=1)
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
 
     spent = 0.0
     for sub in subscriptions:

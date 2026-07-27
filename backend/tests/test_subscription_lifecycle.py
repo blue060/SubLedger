@@ -10,6 +10,7 @@ from app.services.subscription_lifecycle import (
 def _subscription(**overrides):
     values = {
         "name": "状态测试",
+        "user_id": 1,
         "amount": 10,
         "currency": "CNY",
         "billing_cycle": "monthly",

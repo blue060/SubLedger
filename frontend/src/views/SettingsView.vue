@@ -130,7 +130,76 @@
       </el-form>
     </el-card>
 
-    <el-card class="settings-card">
+    <el-card v-if="authStore.isAdmin" class="settings-card">
+      <template #header>
+        <div class="card-header">
+          <span>用户管理</span>
+          <el-button type="primary" size="small" @click="openCreateUser">添加用户</el-button>
+        </div>
+      </template>
+      <el-table :data="users" stripe>
+        <el-table-column prop="username" label="用户名" min-width="140" />
+        <el-table-column label="角色" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.is_admin ? 'danger' : 'info'">{{ row.is_admin ? '管理员' : '普通用户' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" min-width="170">
+          <template #default="{ row }">{{ row.created_at?.replace('T', ' ').slice(0, 19) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="190" align="right">
+          <template #default="{ row }">
+            <el-button size="small" @click="openResetPassword(row)">重置密码</el-button>
+            <el-button
+              size="small"
+              type="danger"
+              :disabled="row.username === authStore.username"
+              @click="handleDeleteUser(row)"
+            >删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!users.length" description="暂无用户" :image-size="72" />
+    </el-card>
+
+    <el-dialog v-model="userDialogVisible" title="添加用户" width="420px">
+      <el-form :model="userForm" label-width="90px">
+        <el-form-item label="用户名">
+          <el-input v-model="userForm.username" maxlength="50" autocomplete="off" />
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="userForm.password" type="password" show-password autocomplete="new-password" />
+        </el-form-item>
+        <el-form-item label="确认密码">
+          <el-input v-model="userForm.confirmPassword" type="password" show-password autocomplete="new-password" />
+        </el-form-item>
+        <el-form-item label="管理员">
+          <el-switch v-model="userForm.isAdmin" />
+          <span class="field-hint">管理员可管理用户和整库备份</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="userDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="userSaving" @click="handleCreateUser">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="resetDialogVisible" :title="`重置 ${resetTarget?.username || ''} 的密码`" width="420px">
+      <el-form label-width="90px">
+        <el-form-item label="新密码">
+          <el-input v-model="resetForm.password" type="password" show-password autocomplete="new-password" />
+        </el-form-item>
+        <el-form-item label="确认密码">
+          <el-input v-model="resetForm.confirmPassword" type="password" show-password autocomplete="new-password" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="resetDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="userSaving" @click="handleResetPassword">确认重置</el-button>
+      </template>
+    </el-dialog>
+
+    <el-card v-if="authStore.isAdmin" class="settings-card">
       <template #header>{{ zhCN.settings.backupSection }}</template>
       <el-button type="primary" @click="handleTriggerBackup" :loading="backupLoading">{{ zhCN.settings.triggerBackup }}</el-button>
       <el-table :data="backups" stripe style="margin-top: 12px" v-if="backups.length">
@@ -168,9 +237,12 @@ import { exportData, importData } from '../api/data'
 import { useCategoryStore } from '../stores/category'
 import { reorderCategories } from '../api/categories'
 import { listBackups, triggerBackup, downloadBackup, deleteBackup } from '../api/backups'
+import { createUser, deleteUser, listUsers, resetUserPassword, type ManagedUser } from '../api/users'
+import { useAuthStore } from '../stores/auth'
 import { zhCN } from '../locales/zh-CN'
 
 const categoryStore = useCategoryStore()
+const authStore = useAuthStore()
 const categories = computed(() => categoryStore.categories)
 
 const passwordForm = reactive({ old_password: '', new_password: '', confirm_password: '' })
@@ -201,14 +273,99 @@ const predefineColors = [
 
 const backups = ref<any[]>([])
 const backupLoading = ref(false)
+const users = ref<ManagedUser[]>([])
+const userDialogVisible = ref(false)
+const resetDialogVisible = ref(false)
+const userSaving = ref(false)
+const resetTarget = ref<ManagedUser | null>(null)
+const userForm = reactive({ username: '', password: '', confirmPassword: '', isAdmin: false })
+const resetForm = reactive({ password: '', confirmPassword: '' })
 
 onMounted(async () => {
   const res = await getSettings()
   Object.assign(settingsForm, res.data)
   settingsForm.smtp_password = null
   await categoryStore.fetchList()
-  await fetchBackups()
+  if (authStore.isAdmin) {
+    await Promise.all([fetchBackups(), fetchUsers()])
+  }
 })
+
+async function fetchUsers() {
+  const res = await listUsers()
+  users.value = res.data
+}
+
+function openCreateUser() {
+  Object.assign(userForm, { username: '', password: '', confirmPassword: '', isAdmin: false })
+  userDialogVisible.value = true
+}
+
+function validateManagedPassword(password: string, confirmation: string) {
+  if (password.length < 12) {
+    ElMessage.warning(zhCN.auth.passwordMinLength)
+    return false
+  }
+  if (password !== confirmation) {
+    ElMessage.warning(zhCN.auth.passwordMismatch)
+    return false
+  }
+  return true
+}
+
+async function handleCreateUser() {
+  if (!userForm.username.trim()) {
+    ElMessage.warning('请输入用户名')
+    return
+  }
+  if (!validateManagedPassword(userForm.password, userForm.confirmPassword)) return
+  userSaving.value = true
+  try {
+    await createUser({ username: userForm.username.trim(), password: userForm.password, is_admin: userForm.isAdmin })
+    ElMessage.success('用户已创建')
+    userDialogVisible.value = false
+    await fetchUsers()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '创建用户失败')
+  } finally {
+    userSaving.value = false
+  }
+}
+
+function openResetPassword(user: ManagedUser) {
+  resetTarget.value = user
+  Object.assign(resetForm, { password: '', confirmPassword: '' })
+  resetDialogVisible.value = true
+}
+
+async function handleResetPassword() {
+  if (!resetTarget.value || !validateManagedPassword(resetForm.password, resetForm.confirmPassword)) return
+  userSaving.value = true
+  try {
+    await resetUserPassword(resetTarget.value.id, resetForm.password)
+    ElMessage.success('密码已重置')
+    resetDialogVisible.value = false
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '重置密码失败')
+  } finally {
+    userSaving.value = false
+  }
+}
+
+async function handleDeleteUser(user: ManagedUser) {
+  try {
+    await ElMessageBox.confirm(
+      `删除用户“${user.username}”后，其订阅、付款、通知和设置也会一并删除。此操作不可恢复，确认继续吗？`,
+      '删除用户',
+      { type: 'warning', confirmButtonText: '确认删除' },
+    )
+    await deleteUser(user.id)
+    ElMessage.success('用户已删除')
+    await fetchUsers()
+  } catch (e: any) {
+    if (e?.response?.data?.detail) ElMessage.error(e.response.data.detail)
+  }
+}
 
 async function handleSaveSettings() {
   await updateSettings(settingsForm)
@@ -377,6 +534,16 @@ async function handleDeleteCategory(cat: any) {
 <style scoped>
 .settings-card {
   margin-bottom: 16px;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.field-hint {
+  margin-left: 10px;
+  color: var(--text-muted, #64748b);
+  font-size: 12px;
 }
 .category-list {
   display: flex;

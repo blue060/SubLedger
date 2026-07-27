@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_current_user_id
 from app.models import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryOut
 
@@ -12,8 +12,8 @@ router = APIRouter(prefix="/api/categories", tags=["分类"], dependencies=[Depe
 
 
 @router.get("", response_model=list[CategoryOut])
-def list_categories(db: Session = Depends(get_db)):
-    return db.query(Category).order_by(
+def list_categories(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    return db.query(Category).filter(Category.user_id == user_id).order_by(
         case((Category.name == "其他", 1), else_=0),
         Category.sort_order,
         Category.id,
@@ -21,8 +21,8 @@ def list_categories(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
-def create_category(body: CategoryCreate, db: Session = Depends(get_db)):
-    cat = Category(**body.model_dump())
+def create_category(body: CategoryCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    cat = Category(**body.model_dump(), user_id=user_id)
     db.add(cat)
     db.commit()
     db.refresh(cat)
@@ -30,8 +30,8 @@ def create_category(body: CategoryCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{category_id}", response_model=CategoryOut)
-def update_category(category_id: int, body: CategoryUpdate, db: Session = Depends(get_db)):
-    cat = db.query(Category).filter(Category.id == category_id).first()
+def update_category(category_id: int, body: CategoryUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    cat = db.query(Category).filter(Category.id == category_id, Category.user_id == user_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="分类不存在")
     for key, value in body.model_dump(exclude_unset=True).items():
@@ -42,8 +42,8 @@ def update_category(category_id: int, body: CategoryUpdate, db: Session = Depend
 
 
 @router.delete("/{category_id}")
-def delete_category(category_id: int, db: Session = Depends(get_db)):
-    cat = db.query(Category).filter(Category.id == category_id).first()
+def delete_category(category_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    cat = db.query(Category).filter(Category.id == category_id, Category.user_id == user_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="分类不存在")
     if cat.subscriptions:
@@ -54,8 +54,8 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/reorder")
-def reorder_categories(ids: list[int] = Body(..., embed=True), db: Session = Depends(get_db)):
-    cats = db.query(Category).filter(Category.id.in_(ids)).all()
+def reorder_categories(ids: list[int] = Body(..., embed=True), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    cats = db.query(Category).filter(Category.user_id == user_id, Category.id.in_(ids)).all()
     cat_map = {c.id: c for c in cats}
     for i, cid in enumerate(ids):
         if cid in cat_map:

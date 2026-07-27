@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_current_user_id
 from app.models import AppSettings
 from app.schemas.settings import SettingsOut, SettingsUpdate, PasswordChange
 from app.security import verify_password, hash_password
@@ -11,8 +11,8 @@ router = APIRouter(prefix="/api/settings", tags=["设置"], dependencies=[Depend
 
 
 @router.get("", response_model=SettingsOut)
-def get_settings(db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+def get_settings(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     if not settings:
         raise HTTPException(status_code=404, detail="设置不存在")
     return SettingsOut(
@@ -32,8 +32,8 @@ def get_settings(db: Session = Depends(get_db)):
 
 
 @router.put("", response_model=SettingsOut)
-def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+def update_settings(body: SettingsUpdate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     if not settings:
         raise HTTPException(status_code=404, detail="设置不存在")
 
@@ -75,10 +75,10 @@ def change_password(body: PasswordChange, current_user=Depends(get_current_user)
 
 
 @router.post("/test-email")
-async def test_email(db: Session = Depends(get_db)):
+async def test_email(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     from app.services.notifier import Notifier
 
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     if not settings or not settings.smtp_host:
         raise HTTPException(status_code=400, detail="未配置 SMTP")
 
@@ -96,10 +96,10 @@ async def test_email(db: Session = Depends(get_db)):
 
 
 @router.post("/test-push")
-async def test_push(db: Session = Depends(get_db)):
+async def test_push(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     from app.services.notifier import Notifier
 
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     if not settings:
         raise HTTPException(status_code=404, detail="设置不存在")
 

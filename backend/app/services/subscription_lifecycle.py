@@ -37,18 +37,18 @@ def get_subscription_lifecycle(
 def deactivate_expired_subscriptions(
     db: Session,
     as_of: date | None = None,
+    user_id: int | None = None,
 ) -> int:
     """Deactivate subscriptions after their inclusive expiry date."""
     as_of = as_of or date.today()
-    count = (
-        db.query(Subscription)
-        .filter(
+    query = db.query(Subscription).filter(
             Subscription.is_active == True,
             Subscription.expiry_date != None,
             Subscription.expiry_date < as_of,
         )
-        .update({Subscription.is_active: False}, synchronize_session=False)
-    )
+    if user_id is not None:
+        query = query.filter(Subscription.user_id == user_id)
+    count = query.update({Subscription.is_active: False}, synchronize_session=False)
     if count:
         db.commit()
     return count

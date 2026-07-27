@@ -32,12 +32,9 @@ class ExchangeRateService:
             if self._memory_rates and self._memory_expires_at and now < self._memory_expires_at:
                 return self._memory_rates
 
-            settings_row = db.query(AppSettings).filter(AppSettings.id == 1).first()
+            settings_row = db.query(AppSettings).order_by(AppSettings.id).first()
             if not settings_row:
-                settings_row = AppSettings(id=1, preferred_currency="CNY", reminder_days=7)
-                db.add(settings_row)
-                db.commit()
-                db.refresh(settings_row)
+                raise ExchangeRateError("应用设置尚未初始化")
 
             cache_hours = get_settings().EXCHANGE_RATE_CACHE_HOURS
             expires_at = now + timedelta(hours=cache_hours)

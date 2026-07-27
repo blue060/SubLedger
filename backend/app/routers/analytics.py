@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_current_user_id
 from app.models import Subscription, Category, AppSettings
 from app.schemas.analytics import MonthlyComparison, CategoryTrendItem, TopSubscription, CurrencyBreakdownItem, AnnualReport
 from app.services.exchange_rate import exchange_rate_service
@@ -14,15 +14,15 @@ router = APIRouter(prefix="/api/analytics", tags=["支出分析"], dependencies=
 
 
 @router.get("/monthly-comparison", response_model=MonthlyComparison)
-async def monthly_comparison(db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+async def monthly_comparison(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
 
     today = date.today()
     current_month = today.replace(day=1)
     last_month = current_month - relativedelta(months=1)
 
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
 
     current_total = 0.0
     last_total = 0.0
@@ -55,12 +55,12 @@ async def monthly_comparison(db: Session = Depends(get_db)):
 
 
 @router.get("/category-trend", response_model=list[CategoryTrendItem])
-async def category_trend(months: int = Query(default=12, ge=1, le=24), db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+async def category_trend(months: int = Query(default=12, ge=1, le=24), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
 
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
-    categories = db.query(Category).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
+    categories = db.query(Category).filter(Category.user_id == user_id).all()
     cat_map = {c.id: c for c in categories}
 
     today = date.today()
@@ -86,12 +86,12 @@ async def category_trend(months: int = Query(default=12, ge=1, le=24), db: Sessi
 
 
 @router.get("/top-subscriptions", response_model=list[TopSubscription])
-async def top_subscriptions(limit: int = Query(default=10, ge=1, le=50), db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+async def top_subscriptions(limit: int = Query(default=10, ge=1, le=50), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
 
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
-    categories = db.query(Category).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
+    categories = db.query(Category).filter(Category.user_id == user_id).all()
     cat_map = {c.id: c for c in categories}
 
     items = []
@@ -135,11 +135,11 @@ async def top_subscriptions(limit: int = Query(default=10, ge=1, le=50), db: Ses
 
 
 @router.get("/currency-breakdown", response_model=list[CurrencyBreakdownItem])
-async def currency_breakdown(db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+async def currency_breakdown(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
 
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
 
     current_month = date.today().replace(day=1)
     by_currency: dict[str, dict] = {}
@@ -168,12 +168,12 @@ async def currency_breakdown(db: Session = Depends(get_db)):
 
 
 @router.get("/annual-report", response_model=AnnualReport)
-async def annual_report(year: int = Query(default=date.today().year, ge=2020, le=2030), db: Session = Depends(get_db)):
-    settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+async def annual_report(year: int = Query(default=date.today().year, ge=2020, le=2030), db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     preferred = settings.preferred_currency if settings else "CNY"
 
-    subscriptions = db.query(Subscription).filter(Subscription.is_active == True).all()
-    categories = db.query(Category).all()
+    subscriptions = db.query(Subscription).filter(Subscription.user_id == user_id, Subscription.is_active == True).all()
+    categories = db.query(Category).filter(Category.user_id == user_id).all()
     cat_map = {c.id: c for c in categories}
 
     monthly_totals = []

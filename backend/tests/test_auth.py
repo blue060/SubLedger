@@ -9,6 +9,7 @@ def test_login_success(client):
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "admin"
+    assert data["is_admin"] is True
     assert "token" not in data
     assert "subledger_token" in response.cookies
     assert "subledger_csrf" in response.cookies
