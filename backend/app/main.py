@@ -12,7 +12,7 @@ from app.models import User, Category, Notification, Subscription, AppSettings, 
 from app.routers import auth, health, subscriptions, categories, dashboard, notifications, settings as settings_router, data, payments, tags, backups, search, analytics
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.payment_sync import sync_due_payments
-from app.services.admin_bootstrap import ensure_initial_admin, validate_runtime_secret
+from app.services.admin_bootstrap import ensure_initial_admin, load_or_create_runtime_secret
 from app.middleware.csrf import CSRFMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
@@ -111,7 +111,11 @@ def initialize_admin_user():
     db = SessionLocal()
     try:
         settings = get_settings()
-        validate_runtime_secret(settings.SECRET_KEY, settings.ENV)
+        settings.SECRET_KEY = load_or_create_runtime_secret(
+            settings.SECRET_KEY,
+            settings.ENV,
+            settings.SECRET_KEY_FILE,
+        )
         if ensure_initial_admin(db, settings.ADMIN_USERNAME, settings.ADMIN_PASSWORD):
             logger.info("已通过服务器环境变量创建初始管理员")
     finally:

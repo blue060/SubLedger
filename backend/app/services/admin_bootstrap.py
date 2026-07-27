@@ -1,3 +1,7 @@
+import os
+from pathlib import Path
+import secrets
+
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -30,6 +34,61 @@ def validate_runtime_secret(secret_key: str, environment: str) -> None:
         raise InitialAdminConfigurationError(
             "公网生产环境必须设置至少32个字符的随机 SECRET_KEY，可使用 openssl rand -hex 32 生成"
         )
+
+
+def load_or_create_runtime_secret(
+    configured_secret: str,
+    environment: str,
+    secret_file: str,
+) -> str:
+    """Return an explicit secret or persist an automatically generated one.
+
+    Production secrets are stored alongside the database in the Docker data
+    volume so container recreation does not invalidate every login session.
+    """
+    configured_secret = configured_secret.strip()
+    if configured_secret:
+        validate_runtime_secret(configured_secret, environment)
+        return configured_secret
+
+    if environment.lower() != "production":
+        return secrets.token_urlsafe(48)
+
+    path = Path(secret_file)
+    try:
+        existing_secret = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        existing_secret = ""
+    except OSError as exc:
+        raise InitialAdminConfigurationError(
+            f"无法读取自动生成的系统密钥文件 {path}: {exc}"
+        ) from exc
+
+    if existing_secret:
+        validate_runtime_secret(existing_secret, environment)
+        return existing_secret
+
+    generated_secret = secrets.token_urlsafe(48)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(generated_secret)
+    except FileExistsError:
+        # Another worker may have created it between our read and write.
+        try:
+            generated_secret = path.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise InitialAdminConfigurationError(
+                f"无法读取自动生成的系统密钥文件 {path}: {exc}"
+            ) from exc
+    except OSError as exc:
+        raise InitialAdminConfigurationError(
+            f"无法写入自动生成的系统密钥文件 {path}: {exc}"
+        ) from exc
+
+    validate_runtime_secret(generated_secret, environment)
+    return generated_secret
 
 
 def ensure_initial_admin(db: Session, username: str, password: str) -> bool:

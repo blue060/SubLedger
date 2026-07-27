@@ -1,8 +1,15 @@
+import stat
+
 import pytest
 
 from app.models import User
 from app.security import verify_password
-from app.services.admin_bootstrap import InitialAdminConfigurationError, ensure_initial_admin, validate_runtime_secret
+from app.services.admin_bootstrap import (
+    InitialAdminConfigurationError,
+    ensure_initial_admin,
+    load_or_create_runtime_secret,
+    validate_runtime_secret,
+)
 
 
 def test_initial_admin_is_created_from_server_configuration(db):
@@ -41,3 +48,23 @@ def test_production_rejects_default_or_short_secret_key():
 def test_random_production_secret_and_development_mode_are_allowed():
     validate_runtime_secret("b7c13477e2af9a64e5d4b6d6a974376a" * 2, "production")
     validate_runtime_secret("development-only", "development")
+
+
+def test_production_secret_is_generated_once_and_persisted(tmp_path):
+    secret_file = tmp_path / ".subledger_secret"
+
+    first = load_or_create_runtime_secret("", "production", str(secret_file))
+    second = load_or_create_runtime_secret("", "production", str(secret_file))
+
+    assert len(first) >= 32
+    assert second == first
+    assert secret_file.read_text(encoding="utf-8") == first
+    assert stat.S_IMODE(secret_file.stat().st_mode) == 0o600
+
+
+def test_explicit_production_secret_does_not_create_a_file(tmp_path):
+    secret_file = tmp_path / ".subledger_secret"
+    configured = "b7c13477e2af9a64e5d4b6d6a974376a" * 2
+
+    assert load_or_create_runtime_secret(configured, "production", str(secret_file)) == configured
+    assert not secret_file.exists()

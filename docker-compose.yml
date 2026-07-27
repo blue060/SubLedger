@@ -13,8 +13,7 @@ services:
       # 已创建管理员的旧数据库不会因修改这里而覆盖现有账号。
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=
-      # 填写至少 32 个字符的随机字符串，可用 openssl rand -hex 32 生成。
-      - SECRET_KEY=
+      # 系统签名密钥会自动生成并保存在数据卷，无需设置。
       # 使用 HTTPS 域名访问时改为 true；直接使用 HTTP 时保持 false。
       - COOKIE_SECURE=false
       - ENV=production

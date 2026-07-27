@@ -30,11 +30,8 @@ cd SubLedger
 environment:
   - ADMIN_USERNAME=admin
   - ADMIN_PASSWORD=填写你自己的至少12位密码
-  - SECRET_KEY=填写至少32位的随机字符串
   - COOKIE_SECURE=true # 使用 HTTPS 时设为 true，HTTP 时设为 false
 ```
-
-随机签名密钥可用 `openssl rand -hex 32` 生成，然后粘贴到 `SECRET_KEY` 后面。
 
 3. 启动：
 ```bash
@@ -46,8 +43,8 @@ docker compose up -d
 首次启动时，后端会使用 `docker-compose.yml` 中的 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`
 创建管理员。公网网页初始化入口已禁用，未配置安全密码时服务会拒绝启动。
 管理员创建成功后，修改环境变量不会覆盖现有密码；密码可在登录后的系统设置中修改。
-生产环境还必须设置至少32个字符的随机 `SECRET_KEY`。公网部署应通过 HTTPS
-访问，并将 `COOKIE_SECURE` 设置为 `true`。
+系统会自动生成独立的签名密钥并保存在 Docker 数据卷中，无需手工设置。
+公网部署应通过 HTTPS 访问，并将 `COOKIE_SECURE` 设置为 `true`。
 
 ### 手动运行
 
@@ -75,7 +72,6 @@ npm run build
 |------|------|--------|------|
 | `ADMIN_USERNAME` | 首次启动 | `admin` | 初始管理员用户名 |
 | `ADMIN_PASSWORD` | 首次启动 | - | 初始管理员密码，至少12个字符；不会覆盖已有用户 |
-| `SECRET_KEY` | 生产环境必须 | - | JWT 签名密钥，至少32个随机字符 |
 | `COOKIE_SECURE` | 否 | `false` | 使用 HTTPS 时设为 `true`，仅通过安全连接发送登录 Cookie |
 | `ENV` | 否 | `production` | 运行环境 |
 | `DATABASE_URL` | 否 | `sqlite:///./data/subledger.db` | 数据库连接 |
