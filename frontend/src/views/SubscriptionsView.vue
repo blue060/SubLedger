@@ -1,101 +1,118 @@
 <template>
-  <div>
-    <div class="page-header">
-      <h2>{{ zhCN.subscription.title }}</h2>
-      <div style="display:flex;gap:8px">
-        <el-button @click="showTemplateDialog = true">{{ zhCN.subscription.quickAdd }}</el-button>
-        <el-button type="primary" @click="showForm()">{{ zhCN.subscription.addNew }}</el-button>
+  <div class="subscriptions-page">
+    <section class="page-hero">
+      <div>
+        <span class="page-eyebrow">SUBSCRIPTION LIBRARY</span>
+        <h2>{{ zhCN.subscription.title }}</h2>
+        <p>集中查看每项服务的续费、到期和停用状态，避免遗漏扣款。</p>
       </div>
+      <div class="page-actions">
+        <el-button :icon="MagicStick" @click="showTemplateDialog = true">{{ zhCN.subscription.quickAdd }}</el-button>
+        <el-button type="primary" :icon="Plus" @click="showForm()">{{ zhCN.subscription.addNew }}</el-button>
+      </div>
+    </section>
+
+    <div class="status-overview">
+      <button
+        v-for="item in statusCards"
+        :key="item.key"
+        class="status-card"
+        :class="[`status-${item.key}`, { active: statusFilter === item.key }]"
+        @click="statusFilter = item.key"
+      >
+        <span class="status-card-label">{{ item.label }}</span>
+        <strong>{{ item.count }}</strong>
+        <span class="status-card-hint">{{ item.hint }}</span>
+      </button>
     </div>
 
-    <!-- Expiry tabs -->
-    <el-tabs v-model="expiryTab" class="expiry-tabs" @tab-change="handleExpiryTabChange">
-      <el-tab-pane :label="zhCN.subscription.tabUnexpired" name="unexpired" />
-      <el-tab-pane :label="zhCN.subscription.tabExpired" name="expired" />
-    </el-tabs>
+    <section class="subscription-panel">
+      <div class="filter-bar">
+        <el-input v-model="searchText" class="search-input" placeholder="搜索名称、备注或域名" clearable :prefix-icon="Search" />
+        <el-select v-model="filterCategory" :placeholder="zhCN.subscription.category" clearable class="filter-select">
+          <el-option v-for="cat in categoryStore.categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+        </el-select>
+        <el-select v-model="filterCurrency" :placeholder="zhCN.subscription.currency" clearable class="currency-select">
+          <el-option v-for="currency in currencies" :key="currency" :label="currency" :value="currency" />
+        </el-select>
+        <el-button v-if="hasFilters" :icon="RefreshLeft" text @click="resetFilters">重置筛选</el-button>
+        <span class="result-count">共 {{ filteredSubscriptions.length }} 项</span>
+      </div>
 
-    <!-- Filters -->
-    <div class="filter-bar">
-      <el-input v-model="searchText" :placeholder="zhCN.common.search" clearable style="width: 200px" @input="debouncedFetchList" />
-      <el-select v-model="filterCategory" :placeholder="zhCN.subscription.category" clearable style="width: 140px" @change="fetchList">
-        <el-option :label="zhCN.subscription.filterAll" :value="null" />
-        <el-option v-for="cat in categoryStore.categories" :key="cat.id" :label="cat.name" :value="cat.id" />
-      </el-select>
-      <el-select v-model="filterCurrency" :placeholder="zhCN.subscription.currency" clearable style="width: 100px" @change="fetchList">
-        <el-option :label="zhCN.subscription.filterAll" :value="null" />
-        <el-option label="CNY" value="CNY" />
-        <el-option label="USD" value="USD" />
-        <el-option label="EUR" value="EUR" />
-        <el-option label="GBP" value="GBP" />
-        <el-option label="JPY" value="JPY" />
-        <el-option label="HKD" value="HKD" />
-      </el-select>
-      <el-select v-model="filterStatus" :placeholder="zhCN.subscription.status" clearable style="width: 120px" @change="fetchList">
-        <el-option :label="zhCN.subscription.filterAll" :value="null" />
-        <el-option :label="zhCN.subscription.statusActive" value="active" />
-        <el-option :label="zhCN.subscription.statusInactive" value="inactive" />
-      </el-select>
-      <div v-if="selectedIds.length" class="batch-actions">
+      <div v-if="selectedIds.length" class="batch-bar">
         <span class="selected-info">{{ zhCN.subscription.selected.replace('{count}', String(selectedIds.length)) }}</span>
-        <el-button size="small" type="success" @click="handleBatchToggle(true)">{{ zhCN.subscription.batchEnable }}</el-button>
-        <el-button size="small" type="warning" @click="handleBatchToggle(false)">{{ zhCN.subscription.batchDisable }}</el-button>
-        <el-button size="small" @click="showBatchCategory = true">{{ zhCN.subscription.batchSetCategory }}</el-button>
-        <el-button size="small" @click="showBatchExpiry = true">{{ zhCN.subscription.batchSetExpiry }}</el-button>
-        <el-button size="small" type="danger" @click="handleBatchDelete">{{ zhCN.subscription.batchDelete }}</el-button>
+        <div class="batch-actions">
+          <el-button size="small" type="success" plain @click="handleBatchToggle(true)">{{ zhCN.subscription.batchEnable }}</el-button>
+          <el-button size="small" type="warning" plain @click="handleBatchToggle(false)">{{ zhCN.subscription.batchDisable }}</el-button>
+          <el-button size="small" @click="showBatchCategory = true">{{ zhCN.subscription.batchSetCategory }}</el-button>
+          <el-button size="small" @click="showBatchExpiry = true">{{ zhCN.subscription.batchSetExpiry }}</el-button>
+          <el-button size="small" type="danger" plain @click="handleBatchDelete">{{ zhCN.subscription.batchDelete }}</el-button>
+        </div>
       </div>
-    </div>
 
-    <el-table :data="subscriptionStore.subscriptions" v-loading="subscriptionStore.loading" stripe @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="40" />
-      <el-table-column prop="name" :label="zhCN.subscription.name" sortable>
-        <template #default="{ row }">
-          <div style="display: flex; align-items: center; gap: 8px">
-            <ServiceIcon :name="row.name" :url="row.url" :category-color="row.category_color" :size="28" />
-            <span>{{ row.name }}</span>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column prop="amount" :label="zhCN.subscription.amount" sortable>
-        <template #default="{ row }">
-          {{ formatCurrency(row.amount, row.currency) }}
-          <span v-if="row.intro_amount != null && row.intro_months != null" class="intro-hint">({{ formatCurrency(row.intro_amount, row.currency) }}×{{ row.intro_months }}{{ zhCN.subscription.unitMonth }})</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="billing_cycle" :label="zhCN.subscription.cycle" sortable>
-        <template #default="{ row }">{{ cycleLabel(row.billing_cycle, row.billing_cycle_num, row.billing_cycle_unit) }}</template>
-      </el-table-column>
-      <el-table-column prop="next_payment_date" :label="zhCN.subscription.nextPayment" sortable>
-        <template #default="{ row }">
-          <template v-if="row.billing_cycle === 'once' || row.billing_cycle === 'permanent'">{{ zhCN.dashboard.permanentPurchase }}</template>
-          <template v-else-if="!row.auto_renew && row.expiry_date">{{ zhCN.subscription.expiresOn }}: {{ row.expiry_date }}</template>
-          <template v-else>{{ row.next_payment_date || '--' }}</template>
-        </template>
-      </el-table-column>
-      <el-table-column v-if="hasExpiring" prop="remaining_days" :label="zhCN.subscription.remainingDays" width="120" :sort-method="(a: any, b: any) => (a.remaining_days ?? Infinity) - (b.remaining_days ?? Infinity)" sortable>
-        <template #default="{ row }">
-          <el-tag v-if="row.billing_cycle === 'permanent'" type="success" size="small">{{ zhCN.dashboard.permanentLabel }}</el-tag>
-          <el-tag v-else-if="row.remaining_days != null" :type="row.remaining_days <= 0 ? 'danger' : row.remaining_days <= 7 ? 'danger' : row.remaining_days <= 30 ? 'warning' : 'info'" size="small">
-            {{ row.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(row.remaining_days)) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="category_name" :label="zhCN.subscription.category" sortable>
-        <template #default="{ row }">
-          <el-tag v-if="row.category_name" :color="row.category_color" style="color: #fff">{{ row.category_name }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="is_active" :label="zhCN.subscription.active" width="80" sortable>
-        <template #default="{ row }">
-          <el-switch v-model="row.is_active" @change="handleToggle(row)" />
-        </template>
-      </el-table-column>
-      <el-table-column label="" width="120">
-        <template #default="{ row }">
-          <el-button size="small" @click="showForm(row)">{{ zhCN.common.edit }}</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(row)">{{ zhCN.common.delete }}</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+      <el-table
+        :data="filteredSubscriptions"
+        v-loading="subscriptionStore.loading"
+        :row-class-name="tableRowClass"
+        empty-text="当前筛选下没有订阅"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="44" />
+        <el-table-column prop="name" :label="zhCN.subscription.name" min-width="210" sortable>
+          <template #default="{ row }">
+            <div class="service-cell">
+              <ServiceIcon :name="row.name" :url="row.url" :category-color="row.category_color" :size="36" />
+              <div class="service-copy">
+                <strong>{{ row.name }}</strong>
+                <span>{{ serviceMeta(row) }}</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="amount" :label="zhCN.subscription.amount" min-width="145" sortable>
+          <template #default="{ row }">
+            <div class="amount-cell">
+              <strong>{{ formatCurrency(row.my_amount ?? row.amount, row.currency) }}</strong>
+              <span v-if="row.my_amount != null">总价 {{ formatCurrency(row.amount, row.currency) }}</span>
+              <span v-else-if="row.intro_amount != null && row.intro_months != null">优惠 {{ formatCurrency(row.intro_amount, row.currency) }} × {{ row.intro_months }}月</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="billing_cycle" :label="zhCN.subscription.cycle" min-width="105" sortable>
+          <template #default="{ row }">
+            <span class="cycle-pill">{{ cycleLabel(row.billing_cycle, row.billing_cycle_num, row.billing_cycle_unit) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="next_payment_date" label="时间安排" min-width="175" sortable>
+          <template #default="{ row }">
+            <div class="schedule-cell">
+              <strong>{{ scheduleTitle(row) }}</strong>
+              <span>{{ scheduleHint(row) }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="lifecycle_status" :label="zhCN.subscription.status" width="112">
+          <template #default="{ row }">
+            <el-tag :type="statusMeta(row.lifecycle_status).type" effect="light" size="small" round>
+              {{ statusMeta(row.lifecycle_status).label }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="is_active" :label="zhCN.subscription.active" width="76" align="center">
+          <template #default="{ row }">
+            <el-tooltip :disabled="row.lifecycle_status !== 'expired'" content="请先修改到期日期再启用">
+              <el-switch v-model="row.is_active" :disabled="row.lifecycle_status === 'expired'" @change="handleToggle(row)" />
+            </el-tooltip>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="128" fixed="right" align="right">
+          <template #default="{ row }">
+            <el-button size="small" text type="primary" @click="showForm(row)">{{ zhCN.common.edit }}</el-button>
+            <el-button size="small" text type="danger" @click="handleDelete(row)">{{ zhCN.common.delete }}</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
 
     <el-dialog v-model="formVisible" :title="editingId ? zhCN.common.edit : zhCN.subscription.addNew" width="500px">
       <el-form ref="formRef" :model="form" :rules="formRules" label-width="100px">
@@ -227,7 +244,8 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import * as echarts from 'echarts'
+import { MagicStick, Plus, RefreshLeft, Search } from '@element-plus/icons-vue'
+import { echarts } from '../utils/charts'
 import { useSubscriptionStore } from '../stores/subscription'
 import { useCategoryStore } from '../stores/category'
 import { zhCN } from '../locales/zh-CN'
@@ -245,17 +263,12 @@ const formVisible = ref(false)
 const editingId = ref<number | null>(null)
 const priceHistory = ref<any[]>([])
 const priceChartRef = ref<HTMLElement>()
-let priceChartInstance: echarts.ECharts | null = null
+let priceChartInstance: echarts.EChartsType | null = null
 const searchText = ref('')
-let searchTimer: ReturnType<typeof setTimeout> | null = null
-function debouncedFetchList() {
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(fetchList, 300)
-}
 const filterCategory = ref<number | null>(null)
 const filterCurrency = ref<string | null>(null)
-const filterStatus = ref<string | null>(null)
-const expiryTab = ref<'unexpired' | 'expired'>('unexpired')
+type StatusFilter = 'all' | 'active' | 'expiring' | 'expired' | 'inactive'
+const statusFilter = ref<StatusFilter>('all')
 const selectedIds = ref<number[]>([])
 const showBatchCategory = ref(false)
 const batchCategoryId = ref<number | null>(null)
@@ -264,6 +277,7 @@ const batchExpiryDate = ref('')
 const showTemplateDialog = ref(false)
 const templates = TEMPLATES
 const formRef = ref<FormInstance>()
+const currencies = ['CNY', 'USD', 'EUR', 'GBP', 'JPY', 'HKD']
 
 const formRules = reactive<FormRules>({
   name: [{ required: true, message: zhCN.subscription.nameRequired, trigger: 'blur' }],
@@ -272,7 +286,44 @@ const formRules = reactive<FormRules>({
   expiry_date: [{ validator: validateExpiryDate, trigger: 'change' }],
 })
 
-const hasExpiring = computed(() => subscriptionStore.subscriptions.some((s: any) => s.remaining_days != null))
+const statusCards = computed(() => {
+  const subscriptions = subscriptionStore.subscriptions
+  const expiring = subscriptions.filter((s) => ['expiring', 'expires_today'].includes(s.lifecycle_status)).length
+  const expired = subscriptions.filter((s) => s.lifecycle_status === 'expired').length
+  const inactive = subscriptions.filter((s) => s.lifecycle_status === 'inactive').length
+  const active = subscriptions.length - expiring - expired - inactive
+  return [
+    { key: 'all' as const, label: '全部订阅', count: subscriptions.length, hint: '所有服务' },
+    { key: 'active' as const, label: '正常使用', count: active, hint: '续费与买断' },
+    { key: 'expiring' as const, label: '即将到期', count: expiring, hint: '30 天内' },
+    { key: 'expired' as const, label: '已经到期', count: expired, hint: '自动停用' },
+    { key: 'inactive' as const, label: '手动停用', count: inactive, hint: '不参与统计' },
+  ]
+})
+
+const filteredSubscriptions = computed(() => {
+  const keyword = searchText.value.trim().toLocaleLowerCase()
+  return subscriptionStore.subscriptions.filter((sub) => {
+    if (statusFilter.value === 'active' && ['expiring', 'expires_today', 'expired', 'inactive'].includes(sub.lifecycle_status)) return false
+    if (statusFilter.value === 'expiring' && !['expiring', 'expires_today'].includes(sub.lifecycle_status)) return false
+    if (statusFilter.value === 'expired' && sub.lifecycle_status !== 'expired') return false
+    if (statusFilter.value === 'inactive' && sub.lifecycle_status !== 'inactive') return false
+    if (filterCategory.value != null && sub.category_id !== filterCategory.value) return false
+    if (filterCurrency.value && sub.currency !== filterCurrency.value) return false
+    if (keyword) {
+      const haystack = [sub.name, sub.notes, sub.url, sub.category_name, sub.payment_method]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase()
+      if (!haystack.includes(keyword)) return false
+    }
+    return true
+  })
+})
+
+const hasFilters = computed(() => Boolean(
+  searchText.value || filterCategory.value != null || filterCurrency.value || statusFilter.value !== 'all'
+))
 
 const defaultForm = {
   name: '', amount: 0, currency: 'CNY', billing_cycle: 'monthly',
@@ -297,25 +348,75 @@ function validateExpiryDate(_rule: any, value: string | null, callback: (error?:
 }
 
 onMounted(async () => {
-  await Promise.all([fetchList(), categoryStore.fetchList()])
-  const tagRes = await listTags()
+  const [, , tagRes] = await Promise.all([
+    fetchList(),
+    categoryStore.fetchList(),
+    listTags().catch(() => ({ data: [] })),
+  ])
   tags.value = tagRes.data
 })
 
 async function fetchList() {
-  const params: Record<string, any> = {}
-  if (searchText.value) params.search = searchText.value
-  if (filterCategory.value != null) params.category_id = filterCategory.value
-  if (filterCurrency.value) params.currency = filterCurrency.value
-  if (filterStatus.value === 'active') params.is_active = true
-  if (filterStatus.value === 'inactive') params.is_active = false
-  params.is_expired = expiryTab.value === 'expired'
-  await subscriptionStore.fetchList(params)
+  await subscriptionStore.fetchList()
 }
 
-async function handleExpiryTabChange() {
+function resetFilters() {
+  searchText.value = ''
+  filterCategory.value = null
+  filterCurrency.value = null
+  statusFilter.value = 'all'
   selectedIds.value = []
-  await fetchList()
+}
+
+function serviceMeta(sub: Subscription) {
+  const parts: string[] = []
+  if (sub.category_name) parts.push(sub.category_name)
+  if (sub.url) {
+    try {
+      parts.push(new URL(sub.url).hostname.replace(/^www\./, ''))
+    } catch {}
+  }
+  if (!parts.length && sub.payment_method) parts.push(sub.payment_method)
+  return parts.join(' · ') || '未分类'
+}
+
+function scheduleTitle(sub: Subscription) {
+  if (sub.lifecycle_status === 'expired') return sub.expiry_date || '--'
+  if (sub.billing_cycle === 'permanent') return '永久有效'
+  if (sub.billing_cycle === 'once') return sub.first_payment_date
+  if (!sub.auto_renew && sub.expiry_date) return sub.expiry_date
+  return sub.next_payment_date || '--'
+}
+
+function scheduleHint(sub: Subscription) {
+  if (sub.lifecycle_status === 'expired') return '已到期并停用'
+  if (sub.lifecycle_status === 'expires_today') return '今天到期'
+  if (sub.lifecycle_status === 'expiring' && sub.remaining_days != null) return `${sub.remaining_days} 天后到期`
+  if (sub.billing_cycle === 'permanent') return '一次付费'
+  if (sub.billing_cycle === 'once') return '一次性付款'
+  if (!sub.auto_renew) return '到期后停止'
+  return '下次自动扣款'
+}
+
+function statusMeta(status: string): { label: string; type: 'success' | 'warning' | 'danger' | 'info' | 'primary' } {
+  const states: Record<string, { label: string; type: 'success' | 'warning' | 'danger' | 'info' | 'primary' }> = {
+    active: { label: '自动续费', type: 'success' },
+    ending: { label: '到期停止', type: 'primary' },
+    expiring: { label: '即将到期', type: 'warning' },
+    expires_today: { label: '今天到期', type: 'warning' },
+    expired: { label: '已到期', type: 'danger' },
+    inactive: { label: '已停用', type: 'info' },
+    permanent: { label: '永久有效', type: 'success' },
+    one_time: { label: '一次性', type: 'info' },
+  }
+  return states[status] || states.active
+}
+
+function tableRowClass({ row }: { row: Subscription }) {
+  if (row.lifecycle_status === 'expired') return 'row-expired'
+  if (row.lifecycle_status === 'inactive') return 'row-inactive'
+  if (['expiring', 'expires_today'].includes(row.lifecycle_status)) return 'row-expiring'
+  return ''
 }
 
 function handleSelectionChange(rows: Subscription[]) {
@@ -401,7 +502,12 @@ async function handleDelete(row: Subscription) {
 
 async function handleToggle(row: Subscription) {
   const oldValue = !row.is_active
-  try { await patchSubscription(row.id, { is_active: row.is_active }) } catch { row.is_active = oldValue }
+  try {
+    const res = await patchSubscription(row.id, { is_active: row.is_active })
+    Object.assign(row, res.data)
+  } catch {
+    row.is_active = oldValue
+  }
 }
 
 async function handleBatchDelete() {
@@ -416,8 +522,9 @@ async function handleBatchDelete() {
 
 async function handleBatchToggle(is_active: boolean) {
   try {
-    await batchToggle(selectedIds.value, is_active)
-    ElMessage.success(zhCN.common.success)
+    const res = await batchToggle(selectedIds.value, is_active)
+    if (res.data.skipped) ElMessage.warning(`${res.data.skipped} 个已到期订阅未启用，请先修改到期日期`)
+    else ElMessage.success(zhCN.common.success)
     selectedIds.value = []
     await fetchList()
   } catch {}
@@ -475,30 +582,257 @@ function renderPriceChart() {
 </script>
 
 <style scoped>
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.expiry-tabs { margin-bottom: 8px; }
-.template-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-height: 400px; overflow-y: auto; }
-.template-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e4e7ed; border-radius: 12px; cursor: pointer; transition: all .2s ease; }
-.template-item:hover { border-color: var(--primary, #6366f1); background: var(--primary-bg, #f5f3ff); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.15); }
-.template-item-info { flex: 1; min-width: 0; }
-.template-name { font-weight: 600; font-size: 14px; color: var(--text-primary, #303133); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.template-meta { font-size: 13px; color: var(--primary, #6366f1); margin-top: 2px; }
-.template-category { font-size: 12px; color: #909399; white-space: nowrap; }
-html.dark .template-item:hover { background: #1e293b; border-color: #818cf8; box-shadow: 0 4px 12px rgba(129,140,248,.15); }
-html.dark .template-name { color: #e2e8f0; }
-html.dark .template-meta { color: #818cf8; }
-.filter-bar {
-  display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
-  padding: 16px; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+.subscriptions-page {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
 }
-.batch-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.selected-info { color: #4f46e5; font-size: 13px; font-weight: 500; }
-.intro-hint { color: #f59e0b; font-size: 12px; font-weight: 500; }
-.cycle-group { display: flex; align-items: center; gap: 8px; }
-.cycle-tip { color: #94a3b8; font-size: 12px; margin-top: 4px; }
-.intro-group { display: flex; align-items: center; gap: 6px; }
-.intro-x { color: #94a3b8; font-size: 14px; }
-.intro-unit { color: #94a3b8; font-size: 13px; }
+.page-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+.page-hero h2 {
+  margin: 3px 0 6px;
+  font-size: 28px;
+}
+.page-hero p {
+  margin-bottom: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.page-eyebrow {
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+}
+.page-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 9px;
+}
+.status-overview {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.status-card {
+  position: relative;
+  min-width: 0;
+  padding: 15px 16px;
+  overflow: hidden;
+  color: var(--text-primary);
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, .025);
+  cursor: pointer;
+  transition: border-color .16s, box-shadow .16s, transform .16s;
+}
+.status-card::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background: #cbd5e1;
+  content: '';
+}
+.status-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--card-shadow-hover);
+}
+.status-card.active {
+  border-color: color-mix(in srgb, var(--status-color, var(--primary)) 45%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-color, var(--primary)) 10%, transparent);
+}
+.status-card-label {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+.status-card strong {
+  display: block;
+  margin: 5px 0 2px;
+  font-size: 24px;
+  line-height: 1;
+}
+.status-card-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.status-all { --status-color: #6366f1; }
+.status-active { --status-color: #10b981; }
+.status-expiring { --status-color: #f59e0b; }
+.status-expired { --status-color: #ef4444; }
+.status-inactive { --status-color: #94a3b8; }
+.status-card::after { background: var(--status-color); }
+.subscription-panel {
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
+}
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.search-input { width: min(360px, 36vw); }
+.filter-select { width: 145px; }
+.currency-select { width: 110px; }
+.result-count {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.batch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--primary-bg);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+}
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.selected-info {
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.service-cell {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.service-copy,
+.amount-cell,
+.schedule-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+.service-copy strong,
+.amount-cell strong,
+.schedule-cell strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.service-copy span,
+.amount-cell span,
+.schedule-cell span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.amount-cell strong {
+  color: var(--primary-dark);
+  font-size: 14px;
+}
+.cycle-pill {
+  display: inline-flex;
+  padding: 4px 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+:deep(.row-expired td.el-table__cell),
+:deep(.row-inactive td.el-table__cell) {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-secondary) 64%, var(--surface));
+}
+:deep(.row-expired .service-copy strong),
+:deep(.row-inactive .service-copy strong) {
+  color: var(--text-secondary);
+}
+:deep(.row-expiring td:first-child) {
+  box-shadow: 3px 0 0 #f59e0b inset;
+}
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.template-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all .16s ease;
+}
+.template-item:hover {
+  background: var(--primary-bg);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(91, 92, 226, .12);
+}
+.template-item-info { flex: 1; min-width: 0; }
+.template-name { overflow: hidden; color: var(--text-primary); font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.template-meta { margin-top: 3px; color: var(--primary); font-size: 12px; }
+.template-category { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+.cycle-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cycle-tip { margin-top: 4px; color: var(--text-muted); font-size: 11px; }
+.intro-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.intro-x { color: var(--text-muted); font-size: 14px; }
+.intro-unit { color: var(--text-muted); font-size: 12px; }
 .sub-favicon { display: none; }
-html.dark .filter-bar { background: #1e293b; }
+
+@media (max-width: 1100px) {
+  .status-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .status-card:nth-child(4), .status-card:nth-child(5) { grid-column: span 1; }
+}
+
+@media (max-width: 767px) {
+  .page-hero { align-items: flex-start; flex-direction: column; }
+  .page-actions { width: 100%; }
+  .page-actions .el-button { flex: 1; }
+  .status-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .status-card { padding: 12px; }
+  .status-card:first-child { grid-column: 1 / -1; }
+  .status-card strong { font-size: 21px; }
+  .filter-bar { align-items: stretch; flex-wrap: wrap; }
+  .search-input { width: 100%; }
+  .filter-select, .currency-select { flex: 1; width: auto; min-width: 120px; }
+  .result-count { width: 100%; margin-left: 0; }
+  .batch-bar { align-items: flex-start; flex-direction: column; }
+  .template-grid { grid-template-columns: 1fr; }
+}
+
+html.dark .selected-info { color: #a5b4fc; }
+html.dark .amount-cell strong { color: #a5b4fc; }
+html.dark .template-item:hover { box-shadow: 0 6px 16px rgba(99, 102, 241, .08); }
 </style>

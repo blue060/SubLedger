@@ -68,7 +68,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
+import { echarts } from '../utils/charts'
 import { getAnnualReport } from '../api/analytics'
 import { zhCN } from '../locales/zh-CN'
 
@@ -79,8 +79,8 @@ const report = ref<Record<string, any>>({})
 
 const trendRef = ref<HTMLElement>()
 const pieRef = ref<HTMLElement>()
-let trendChart: echarts.ECharts | null = null
-let pieChart: echarts.ECharts | null = null
+let trendChart: echarts.EChartsType | null = null
+let pieChart: echarts.EChartsType | null = null
 const isDark = ref(document.documentElement.classList.contains('dark'))
 
 const avgMonthly = computed(() => {

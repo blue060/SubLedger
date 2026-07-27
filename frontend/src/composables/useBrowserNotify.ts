@@ -60,7 +60,7 @@ export async function initBrowserNotifications() {
       } else if (!sub.auto_renew && expiryDate && expiryDate >= today && expiryDate <= cutoff) {
         const days = Math.ceil((expiryDate.getTime() - today.getTime()) / 86400000)
         title = 'SubLedger 到期提醒'
-        body = `${sub.name} 将在 ${days} 天后到期`
+        body = days === 0 ? `${sub.name} 将在今天到期` : `${sub.name} 将在 ${days} 天后到期`
       }
 
       if (title) {

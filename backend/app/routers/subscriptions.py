@@ -11,6 +11,7 @@ from app.schemas.subscription import SubscriptionCreate, SubscriptionUpdate, Sub
 from app.schemas.price_history import PriceHistoryOut
 from app.services.billing import calculate_next_payment_date
 from app.services.payment_sync import sync_due_payments
+from app.services.subscription_lifecycle import deactivate_expired_subscriptions, get_subscription_lifecycle
 
 logger = logging.getLogger("subledger")
 
@@ -29,6 +30,7 @@ def _sub_to_out(sub: Subscription) -> SubscriptionOut:
         out.category_color = sub.category.color
     if sub.expiry_date:
         out.remaining_days = (sub.expiry_date - date.today()).days
+    out.lifecycle_status = get_subscription_lifecycle(sub)
     out.tags = [{"id": t.id, "name": t.name, "color": t.color} for t in sub.tags]
     share = getattr(sub, 'my_share', 100.0) or 100.0
     if share < 100.0:
@@ -47,6 +49,7 @@ def list_subscriptions(
     page_size: int = Query(default=0, ge=0, le=100),
     db: Session = Depends(get_db),
 ):
+    deactivate_expired_subscriptions(db)
     sync_due_payments(db)
     q = db.query(Subscription).options(selectinload(Subscription.tags))
     if is_active is not None:
@@ -88,6 +91,8 @@ def create_subscription(body: SubscriptionCreate, db: Session = Depends(get_db))
         sub.tags = db.query(Tag).filter(Tag.id.in_(body.tag_ids)).all()
     db.add(sub)
     db.commit()
+    db.refresh(sub)
+    deactivate_expired_subscriptions(db)
     db.refresh(sub)
     sync_due_payments(db)
     db.refresh(sub)
@@ -155,6 +160,8 @@ def _apply_update(sub: Subscription, body: SubscriptionUpdate, db: Session) -> S
 
     db.commit()
     db.refresh(sub)
+    deactivate_expired_subscriptions(db)
+    db.refresh(sub)
     sync_due_payments(db)
     db.refresh(sub)
     return sub
@@ -207,11 +214,15 @@ def batch_delete(ids: list[int] = Body(..., embed=True), db: Session = Depends(g
 
 @router.post("/batch-toggle")
 def batch_toggle(ids: list[int] = Body(..., embed=True), is_active: bool = Body(..., embed=True), db: Session = Depends(get_db)):
-    db.query(Subscription).filter(Subscription.id.in_(ids)).update(
+    query = db.query(Subscription).filter(Subscription.id.in_(ids))
+    if is_active:
+        query = query.filter(or_(Subscription.expiry_date == None, Subscription.expiry_date >= date.today()))
+    updated = query.update(
         {"is_active": is_active}, synchronize_session=False
     )
     db.commit()
-    return {"detail": f"已更新 {len(ids)} 个订阅"}
+    skipped = len(ids) - updated
+    return {"detail": f"已更新 {updated} 个订阅", "updated": updated, "skipped": skipped}
 
 
 @router.post("/batch-category")
@@ -229,4 +240,5 @@ def batch_expiry(ids: list[int] = Body(..., embed=True), expiry_date: date = Bod
     for sub in subs:
         sub.expiry_date = expiry_date
     db.commit()
+    deactivate_expired_subscriptions(db)
     return {"detail": f"已更新 {len(subs)} 个订阅"}

@@ -6,7 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, max_requests: int = 60, window_seconds: int = 60,
+    def __init__(self, app, max_requests: int = 120, window_seconds: int = 60,
                  login_max_requests: int = 10, login_window_seconds: int = 60):
         super().__init__(app)
         self.max_requests = max_requests
@@ -53,7 +53,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         now = time()
         self._global_cleanup(now)
 
-        # Login-specific rate limit
+        # Only failed login attempts are throttled. Successful logins reset the
+        # counter so a legitimate user is not punished for an earlier typo.
         if request.url.path == "/api/auth/login":
             self._cleanup_login(ip, now)
             if len(self._login_requests[ip]) >= self.login_max_requests:
@@ -61,8 +62,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     content='{"detail":"登录尝试过于频繁，请稍后再试"}',
                     status_code=429,
                     media_type="application/json",
+                    headers={"Retry-After": str(self.login_window_seconds)},
                 )
-            self._login_requests[ip].append(now)
+            response = await call_next(request)
+            if response.status_code == 401:
+                self._login_requests[ip].append(now)
+            elif response.status_code < 400:
+                self._login_requests.pop(ip, None)
+            return response
+
+        # Page navigation and dashboard rendering are read-only. They may issue
+        # several parallel requests and should never trip a write-abuse limit.
+        if request.method in {"GET", "HEAD", "OPTIONS"}:
             return await call_next(request)
 
         self._cleanup(ip, now)
@@ -72,6 +83,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 content='{"detail":"请求过于频繁，请稍后再试"}',
                 status_code=429,
                 media_type="application/json",
+                headers={"Retry-After": str(self.window_seconds)},
             )
 
         self._requests[ip].append(now)

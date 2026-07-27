@@ -6,6 +6,8 @@ const api = axios.create({
   withCredentials: true,
 })
 
+let lastRateLimitNotice = 0
+
 api.interceptors.request.use((config) => {
   const csrf = document.cookie
     .split('; ')
@@ -25,7 +27,12 @@ api.interceptors.response.use(
         window.location.href = '/login'
       }
     } else if (error.response?.status === 429) {
-      ElMessage.error('请求过于频繁，请稍后再试')
+      const now = Date.now()
+      if (now - lastRateLimitNotice > 3000) {
+        const detail = error.response?.data?.detail || '操作过于频繁，请稍后再试'
+        ElMessage.warning(detail)
+        lastRateLimitNotice = now
+      }
     } else if (error.response?.status !== 403) {
       const detail = error.response?.data?.detail
       let msg = '操作失败'

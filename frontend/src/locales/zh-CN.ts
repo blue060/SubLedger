@@ -63,6 +63,7 @@ export const zhCN = {
     expiryDate: '到期日期',
     remainingDays: '剩余天数',
     daysLeft: '{days}天后到期',
+    expiresToday: '今天到期',
     expired: '已过期',
     paymentMethod: '支付方式',
     notify: '开启提醒',

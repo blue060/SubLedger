@@ -18,6 +18,7 @@ export interface Subscription {
   intro_amount: number | null
   intro_months: number | null
   remaining_days: number | null
+  lifecycle_status: 'active' | 'ending' | 'expiring' | 'expires_today' | 'expired' | 'inactive' | 'permanent' | 'one_time'
   notify: boolean
   auto_renew: boolean
   is_active: boolean

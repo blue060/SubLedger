@@ -45,7 +45,7 @@
       <span v-for="item in expiring" :key="item.id" class="expiring-chip">
         <span class="expiring-chip-name">{{ item.name }}</span>
         <el-tag :type="item.remaining_days <= 7 ? 'danger' : 'warning'" size="small">
-          {{ item.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(item.remaining_days)) }}
+          {{ item.remaining_days === 0 ? zhCN.subscription.expiresToday : zhCN.subscription.daysLeft.replace('{days}', String(item.remaining_days)) }}
         </el-tag>
       </span>
     </div>
@@ -134,7 +134,7 @@
           </div>
           <div v-else-if="!sub.auto_renew && sub.remaining_days != null" class="sub-card-expiry">
             <el-tag :type="sub.remaining_days <= 0 ? 'danger' : sub.remaining_days <= 7 ? 'danger' : sub.remaining_days <= 30 ? 'warning' : 'info'" size="small">
-              {{ sub.remaining_days <= 0 ? zhCN.subscription.expired : zhCN.subscription.daysLeft.replace('{days}', String(sub.remaining_days)) }}
+              {{ sub.remaining_days < 0 ? zhCN.subscription.expired : sub.remaining_days === 0 ? zhCN.subscription.expiresToday : zhCN.subscription.daysLeft.replace('{days}', String(sub.remaining_days)) }}
             </el-tag>
             <span class="sub-card-expiry-date">{{ zhCN.dashboard.expires }}: {{ sub.expiry_date }}</span>
           </div>
@@ -156,7 +156,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import * as echarts from 'echarts'
+import { echarts } from '../utils/charts'
 import { getDashboardSummary, getDashboardStats, getDashboardCalendar, getDashboardExpiring, getDashboardTrend, getDashboardBudget } from '../api/dashboard'
 import { listSubscriptions, updateSubscription } from '../api/subscriptions'
 import { zhCN } from '../locales/zh-CN'
@@ -173,8 +173,8 @@ const trend = ref<any[]>([])
 const budget = ref<Record<string, any>>({})
 const chartRef = ref<HTMLElement>()
 const trendRef = ref<HTMLElement>()
-let chartInstance: echarts.ECharts | null = null
-let trendChart: echarts.ECharts | null = null
+let chartInstance: echarts.EChartsType | null = null
+let trendChart: echarts.EChartsType | null = null
 
 const activeCount = computed(() => zhCN.dashboard.activeCount.replace('{count}', String(subscriptions.value.length)))
 

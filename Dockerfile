@@ -31,6 +31,7 @@ USER subledger
 ENV PYTHONPATH=/app/backend
 ENV DATABASE_URL=sqlite:////data/subledger.db
 ENV PYTHONUNBUFFERED=1
+ENV TZ=Asia/Shanghai
 
 EXPOSE 8080
 

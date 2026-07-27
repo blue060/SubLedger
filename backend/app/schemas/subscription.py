@@ -102,6 +102,7 @@ class SubscriptionOut(BaseModel):
     intro_amount: Optional[float] = None
     intro_months: Optional[int] = None
     remaining_days: Optional[int] = None
+    lifecycle_status: str = "active"
     notify: bool
     auto_renew: bool = True
     is_active: bool

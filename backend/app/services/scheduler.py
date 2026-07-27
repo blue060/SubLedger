@@ -7,6 +7,7 @@ from app.models import Subscription, AppSettings
 from app.services.notifier import check_upcoming_subscriptions
 from app.services.payment_sync import sync_due_payments
 from app.services.backup import perform_backup
+from app.services.subscription_lifecycle import deactivate_expired_subscriptions
 
 logger = logging.getLogger("subledger")
 
@@ -19,7 +20,9 @@ async def daily_check_job():
     try:
         await check_upcoming_subscriptions(db)
         _advance_overdue_payment_dates(db)
-        _auto_disable_expired(db)
+        count = deactivate_expired_subscriptions(db)
+        if count:
+            logger.info(f"已自动停用 {count} 个过期订阅")
         await _check_budget_alert(db)
     except Exception as e:
         logger.error(f"订阅检查任务失败: {e}")
@@ -41,23 +44,6 @@ def backup_job():
 
 def _advance_overdue_payment_dates(db):
     sync_due_payments(db)
-
-
-def _auto_disable_expired(db):
-    from datetime import date
-    today = date.today()
-    count = (
-        db.query(Subscription)
-        .filter(
-            Subscription.is_active == True,
-            Subscription.expiry_date != None,
-            Subscription.expiry_date < today,
-        )
-        .update({Subscription.is_active: False})
-    )
-    if count:
-        db.commit()
-        logger.info(f"已自动停用 {count} 个过期订阅")
 
 
 async def _check_budget_alert(db):

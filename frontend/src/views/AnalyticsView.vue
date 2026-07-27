@@ -59,7 +59,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import { echarts } from '../utils/charts'
 import { getMonthlyComparison, getCategoryTrend, getTopSubscriptions } from '../api/analytics'
 import { zhCN } from '../locales/zh-CN'
 
@@ -69,7 +69,7 @@ const trend = ref<any[]>([])
 const topSubs = ref<any[]>([])
 
 const trendRef = ref<HTMLElement>()
-let trendChart: echarts.ECharts | null = null
+let trendChart: echarts.EChartsType | null = null
 const isDark = ref(document.documentElement.classList.contains('dark'))
 
 const palette = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#a78bfa','#0ea5e9','#34d399']

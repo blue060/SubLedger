@@ -13,6 +13,7 @@ from app.routers import auth, health, subscriptions, categories, dashboard, noti
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.payment_sync import sync_due_payments
 from app.services.admin_bootstrap import ensure_initial_admin, load_or_create_runtime_secret
+from app.services.subscription_lifecycle import deactivate_expired_subscriptions
 from app.middleware.csrf import CSRFMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
@@ -158,6 +159,9 @@ def migrate_categories():
 def sync_payments_on_startup():
     db = SessionLocal()
     try:
+        disabled = deactivate_expired_subscriptions(db)
+        if disabled:
+            logger.info(f"启动检查: 已自动停用 {disabled} 个过期订阅")
         sync_due_payments(db)
     finally:
         db.close()

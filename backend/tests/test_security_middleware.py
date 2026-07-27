@@ -1,10 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.testclient import TestClient
 
 from app.middleware.rate_limit import RateLimitMiddleware
 
 
-def test_login_rate_limit_blocks_repeated_attempts():
+def test_login_rate_limit_blocks_repeated_failed_attempts():
     app = FastAPI()
     app.add_middleware(
         RateLimitMiddleware,
@@ -15,11 +15,11 @@ def test_login_rate_limit_blocks_repeated_attempts():
 
     @app.post("/api/auth/login")
     def login():
-        return {"ok": True}
+        return Response(status_code=401)
 
     with TestClient(app) as client:
-        assert client.post("/api/auth/login").status_code == 200
-        assert client.post("/api/auth/login").status_code == 200
+        assert client.post("/api/auth/login").status_code == 401
+        assert client.post("/api/auth/login").status_code == 401
         response = client.post("/api/auth/login")
 
     assert response.status_code == 429
