@@ -268,7 +268,7 @@ const searchText = ref('')
 const filterCategory = ref<number | null>(null)
 const filterCurrency = ref<string | null>(null)
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired' | 'inactive'
-const statusFilter = ref<StatusFilter>('all')
+const statusFilter = ref<StatusFilter>('active')
 const selectedIds = ref<number[]>([])
 const showBatchCategory = ref(false)
 const batchCategoryId = ref<number | null>(null)
@@ -291,10 +291,10 @@ const statusCards = computed(() => {
   const expiring = subscriptions.filter((s) => ['expiring', 'expires_today'].includes(s.lifecycle_status)).length
   const expired = subscriptions.filter((s) => s.lifecycle_status === 'expired').length
   const inactive = subscriptions.filter((s) => s.lifecycle_status === 'inactive').length
-  const active = subscriptions.length - expiring - expired - inactive
+  const active = subscriptions.length - expired - inactive
   return [
     { key: 'all' as const, label: '全部订阅', count: subscriptions.length, hint: '所有服务' },
-    { key: 'active' as const, label: '正常使用', count: active, hint: '续费与买断' },
+    { key: 'active' as const, label: '当前使用', count: active, hint: '含即将到期' },
     { key: 'expiring' as const, label: '即将到期', count: expiring, hint: '30 天内' },
     { key: 'expired' as const, label: '已经到期', count: expired, hint: '自动停用' },
     { key: 'inactive' as const, label: '手动停用', count: inactive, hint: '不参与统计' },
@@ -304,7 +304,7 @@ const statusCards = computed(() => {
 const filteredSubscriptions = computed(() => {
   const keyword = searchText.value.trim().toLocaleLowerCase()
   return subscriptionStore.subscriptions.filter((sub) => {
-    if (statusFilter.value === 'active' && ['expiring', 'expires_today', 'expired', 'inactive'].includes(sub.lifecycle_status)) return false
+    if (statusFilter.value === 'active' && ['expired', 'inactive'].includes(sub.lifecycle_status)) return false
     if (statusFilter.value === 'expiring' && !['expiring', 'expires_today'].includes(sub.lifecycle_status)) return false
     if (statusFilter.value === 'expired' && sub.lifecycle_status !== 'expired') return false
     if (statusFilter.value === 'inactive' && sub.lifecycle_status !== 'inactive') return false
@@ -322,7 +322,7 @@ const filteredSubscriptions = computed(() => {
 })
 
 const hasFilters = computed(() => Boolean(
-  searchText.value || filterCategory.value != null || filterCurrency.value || statusFilter.value !== 'all'
+  searchText.value || filterCategory.value != null || filterCurrency.value || statusFilter.value !== 'active'
 ))
 
 const defaultForm = {
@@ -364,7 +364,7 @@ function resetFilters() {
   searchText.value = ''
   filterCategory.value = null
   filterCurrency.value = null
-  statusFilter.value = 'all'
+  statusFilter.value = 'active'
   selectedIds.value = []
 }
 
@@ -505,6 +505,7 @@ async function handleToggle(row: Subscription) {
   try {
     const res = await patchSubscription(row.id, { is_active: row.is_active })
     Object.assign(row, res.data)
+    ElMessage.success(row.is_active ? '订阅已重新启用' : '订阅已停用，可在“手动停用”中查看')
   } catch {
     row.is_active = oldValue
   }
